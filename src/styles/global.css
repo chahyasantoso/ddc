@@ -166,28 +166,107 @@ body {
 }
 
 
-/* ── Individual floating photo cards ─────────────────────────────────────── */
-/* Visual appearance only — positioning (top/left/width etc.) is computed
-   dynamically by FloatingPhotos.tsx based on the checkpoint's photo count.
-   Framer Motion handles x/y/opacity/rotate transforms for animation. */
+/* ── Photo Stack wrapper ─────────────────────────────────────────────────────
+   Positioned by Framer Motion (ScrollSlide). This is the entry point
+   for the entire card deck. position:absolute anchors it in the zone.       */
 
-.floating-photo-card {
+.photo-stack-wrapper {
   position: absolute;
+  /* Mobile default: full width of the bottom zone */
+  top: 8%;
+  left: 5%;
+  right: 5%;
   pointer-events: auto;
-  cursor: pointer;
-
-  background: var(--surface-2);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 4px;
-  overflow: hidden;
-  box-shadow:
-    0 8px 32px rgba(0,0,0,0.55),
-    0 2px 6px  rgba(0,0,0,0.4),
-    inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
+@media (min-width: 768px) {
+  .photo-stack-wrapper {
+    top: 12%;
+    left: 6%;
+    right: 6%;
+  }
+}
 
-/* Photo image inside card */
+/* ── Card deck container ─────────────────────────────────────────────────── */
+/* position:relative so peeking cards (position:absolute) are layered here   */
+.ps-deck {
+  position: relative;
+}
+
+/* ── Base card styles (shared by front + peek) ───────────────────────────── */
+.ps-card {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 12px 40px rgba(0,0,0,0.6),
+    0 2px 8px  rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* ── Peek cards (behind the front card) ──────────────────────────────────── */
+/* Absolutely positioned so they don't affect layout — front card drives height */
+.ps-peek {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
+}
+.ps-peek:hover {
+  opacity: 0.9;
+}
+
+/* ── Front card (active photo) ───────────────────────────────────────────── */
+.ps-front {
+  position: relative; /* drives ps-deck height */
+  cursor: default;
+}
+
+/* Caption + counter bar at bottom of front card */
+.ps-front-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px 10px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(0,0,0,0.55)
+  );
+  /* Overlay on top of the image */
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.ps-caption {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.85);
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  margin: 0;
+}
+
+.ps-counter {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.55);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Photo inside any card */
 .fp-frame {
   width: 100%;
   aspect-ratio: 4 / 3;
@@ -199,20 +278,70 @@ body {
   height: 100%;
   object-fit: cover;
   transition: transform 0.4s ease;
+  display: block;
 }
-.floating-photo-card:hover .fp-img {
-  transform: scale(1.05);
+.ps-front:hover .fp-img {
+  transform: scale(1.04);
 }
-.fp-caption {
-  padding: 8px 12px 10px;
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+/* ── Navigation row ──────────────────────────────────────────────────────── */
+.ps-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 2px 0;
+  gap: 8px;
 }
+
+.ps-nav-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.16);
+  color: var(--text-base);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.ps-nav-btn:hover {
+  background: rgba(255,255,255,0.18);
+  transform: scale(1.08);
+}
+
+/* Dot indicators */
+.ps-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  flex: 1;
+}
+.ps-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.25);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.ps-dot:hover {
+  background: rgba(255,255,255,0.5);
+  transform: scale(1.15);
+}
+.ps-dot-active {
+  background: rgba(255,255,255,0.9);
+  transform: scale(1.2);
+}
+
 
 /* ══════════════════════════════════════════════════════════════════════════
    CHECKPOINT INFO CARD

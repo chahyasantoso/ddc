@@ -1,118 +1,167 @@
 import { useState, useEffect } from 'react';
-import type { CSSProperties } from 'react';
-import { ScrollSlide, type SlideDirection } from './ScrollSlide';
-import { PhotoCard } from './PhotoCard';
-import type { Checkpoint } from '../lib/types.client';
-
-// ── Slot config ───────────────────────────────────────────────────────────────
-interface SlotConfig {
-  style    : CSSProperties; // absolute positioning within .floating-photos-zone
-  direction: SlideDirection;
-  rotate   : number;        // static tilt in degrees
-}
-
-// ── Desktop layouts (right 45% of viewport) ───────────────────────────────────
-// Each key = total photo count for that checkpoint.
-// Cards are staggered to create a natural "scattered on a desk" look.
-const DESKTOP: Record<number, SlotConfig[]> = {
-  1: [
-    { style: { top: '18%', left: '6%',  width: '86%' }, direction: 'top',    rotate: -0.5 },
-  ],
-  2: [
-    { style: { top: '8%',    left: '4%',  width: '64%' }, direction: 'top',    rotate: -2.0 },
-    { style: { bottom: '8%', right: '4%', width: '62%' }, direction: 'bottom', rotate:  1.8 },
-  ],
-  3: [
-    { style: { top: '8%',    left: '5%',  width: '54%' }, direction: 'top',    rotate: -1.8 },
-    { style: { top: '36%',   right: '4%', width: '50%' }, direction: 'right',  rotate:  1.5 },
-    { style: { bottom: '9%', left: '8%',  width: '52%' }, direction: 'bottom', rotate: -1.0 },
-  ],
-  4: [
-    { style: { top: '4%',    left: '3%',  width: '47%' }, direction: 'top',    rotate: -2.0 },
-    { style: { top: '4%',    right: '3%', width: '47%' }, direction: 'right',  rotate:  1.8 },
-    { style: { bottom: '4%', left: '5%',  width: '47%' }, direction: 'bottom', rotate:  1.5 },
-    { style: { bottom: '4%', right: '3%', width: '46%' }, direction: 'left',   rotate: -1.5 },
-  ],
-};
-
-// ── Mobile layouts (bottom 48% of viewport) ───────────────────────────────────
-// Only 2 cards visible — space is too narrow for more.
-const MOBILE: SlotConfig[] = [
-  { style: { top: 10, left: '4%',  width: '44%' }, direction: 'top',   rotate: -1.5 },
-  { style: { top: 24, right: '4%', width: '44%' }, direction: 'right', rotate:  1.5 },
-];
-
-// ── Slot resolver ─────────────────────────────────────────────────────────────
-function getSlot(index: number, totalCount: number, isMobile: boolean): SlotConfig {
-  if (isMobile) {
-    return MOBILE[index] ?? MOBILE[MOBILE.length - 1];
-  }
-  // Clamp to the max defined layout (4). Use last slot as fallback for extras.
-  const layout = DESKTOP[Math.min(totalCount, 4)];
-  return layout[index] ?? layout[layout.length - 1];
-}
+import { motion, AnimatePresence } from 'framer-motion';
+import { ScrollSlide } from './ScrollSlide';
+import type { Checkpoint, Photo } from '../lib/types.client';
 
 // ── Responsive hook ───────────────────────────────────────────────────────────
-function useIsMobile(breakpoint = 768): boolean {
-  // Safe to access window immediately — this component is client:only
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint);
+function useIsMobile(bp = 768): boolean {
+  const [v, set] = useState(() => window.innerWidth < bp);
   useEffect(() => {
-    const update = () => setIsMobile(window.innerWidth < breakpoint);
+    const update = () => set(window.innerWidth < bp);
     window.addEventListener('resize', update, { passive: true });
     return () => window.removeEventListener('resize', update);
-  }, [breakpoint]);
-  return isMobile;
+  }, [bp]);
+  return v;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Peek card (behind the front card) ────────────────────────────────────────
+function PeekCard({ photo, depth, onClick }: {
+  photo : Photo;
+  depth : number; // 1 = directly behind, 2 = further back
+  onClick: () => void;
+}) {
+  return (
+    <figure
+      className="ps-card ps-peek"
+      onClick={onClick}
+      title="Click to view"
+      style={{
+        zIndex   : 10 - depth,
+        transform: `rotate(${depth * 3}deg) translate(${depth * 12}px, ${depth * 5}px)`,
+      }}
+    >
+      <div className="fp-frame">
+        <img src={photo.photo_url} alt="" className="fp-img" />
+      </div>
+    </figure>
+  );
+}
+
+// ── Front card (active photo) ─────────────────────────────────────────────────
+function FrontCard({ photo, index, total }: {
+  photo: Photo;
+  index: number;
+  total: number;
+}) {
+  return (
+    <AnimatePresence mode="popLayout" initial={false}>
+      <motion.figure
+        key={photo.id}
+        className="ps-card ps-front"
+        initial   ={{ opacity: 0, scale: 0.94, y: 10 }}
+        animate   ={{ opacity: 1, scale: 1,    y: 0  }}
+        exit      ={{ opacity: 0, scale: 0.94, y: -8 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+        style     ={{ zIndex: 20 }}
+      >
+        <div className="fp-frame">
+          <img src={photo.photo_url} alt={photo.caption} className="fp-img" />
+        </div>
+
+        {/* Caption + counter overlay */}
+        <div className="ps-front-footer">
+          {photo.caption && (
+            <p className="ps-caption">{photo.caption}</p>
+          )}
+          {total > 1 && (
+            <span className="ps-counter">{index + 1} / {total}</span>
+          )}
+        </div>
+      </motion.figure>
+    </AnimatePresence>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 interface FloatingPhotosProps {
   checkpoint: Checkpoint;
-  /** Reveal value 0–1, computed by the parent from scroll progress */
-  reveal: number;
+  reveal    : number; // 0–1, computed by ScrollytellingUI
 }
 
 /**
- * Renders the floating photo stack for one checkpoint.
+ * Card-deck photo stack — shows ALL photos from the checkpoint.
  *
- * Layout adapts automatically to however many photos the checkpoint has:
- *   1 photo  → large, centered
- *   2 photos → upper-left + lower-right
- *   3 photos → staggered triangle
- *   4+ photos → 2×2 grid (extras are hidden to avoid overcrowding)
- *
- * On mobile: max 2 cards, side by side.
+ * - Front card: active photo with caption + "i / N" counter
+ * - Peek cards: next 1–2 photos visible behind (click to jump to that photo)
+ * - Prev / Next buttons for full navigation
+ * - Whole deck slides in/out as one unit via <ScrollSlide reveal={reveal}>
  */
 export function FloatingPhotos({ checkpoint, reveal }: FloatingPhotosProps) {
+  const [activeIdx, setActiveIdx] = useState(0);
   const isMobile = useIsMobile();
-  const MAX      = isMobile ? 2 : 4;
-  const photos   = checkpoint.photos.slice(0, MAX);
-  const count    = photos.length;
+  const photos   = checkpoint.photos;
+  const total    = photos.length;
 
-  if (count === 0) return null;
+  if (total === 0) return null;
+
+  const PEEK     = Math.min(2, total - 1); // number of peek cards (max 2)
+  const direction = isMobile ? 'bottom' : 'right';
+
+  function goTo(i: number) {
+    setActiveIdx(((i % total) + total) % total);
+  }
+
+  // Peek card photos: the ones AFTER the active card
+  const peekPhotos = Array.from({ length: PEEK }, (_, d) => ({
+    photo: photos[(activeIdx + d + 1) % total],
+    depth: d + 1,
+  }));
 
   return (
-    <>
-      {photos.map((photo, pi) => {
-        const slot = getSlot(pi, count, isMobile);
-        return (
-          <ScrollSlide
-            key={photo.id}
-            reveal={reveal}
-            direction={slot.direction}
-            rotate={slot.rotate}
-            className="floating-photo-card"
-            style={slot.style}
-            whileHover={{
-              rotate    : 0,
-              scale     : 1.04,
-              zIndex    : 30,
-              transition: { type: 'spring', stiffness: 400, damping: 30 },
-            }}
+    <ScrollSlide
+      reveal={reveal}
+      direction={direction}
+      className="photo-stack-wrapper"
+    >
+      {/* ── Card deck ─────────────────────────────────────────────── */}
+      <div className="ps-deck">
+        {/* Peeking cards — rendered first so they sit behind via z-index */}
+        {[...peekPhotos].reverse().map(({ photo, depth }) => (
+          <PeekCard
+            key={`peek-${depth}`}
+            photo={photo}
+            depth={depth}
+            onClick={() => goTo(activeIdx + depth)}
+          />
+        ))}
+
+        {/* Front card */}
+        <FrontCard
+          photo={photos[activeIdx]}
+          index={activeIdx}
+          total={total}
+        />
+      </div>
+
+      {/* ── Navigation ────────────────────────────────────────────── */}
+      {total > 1 && (
+        <div className="ps-nav">
+          <button
+            className="ps-nav-btn"
+            onClick={() => goTo(activeIdx - 1)}
+            aria-label="Foto sebelumnya"
           >
-            <PhotoCard photo={photo} />
-          </ScrollSlide>
-        );
-      })}
-    </>
+            ‹
+          </button>
+          <div className="ps-dots">
+            {photos.map((_, i) => (
+              <button
+                key={i}
+                className={`ps-dot${i === activeIdx ? ' ps-dot-active' : ''}`}
+                onClick={() => goTo(i)}
+                aria-label={`Foto ${i + 1}`}
+              />
+            ))}
+          </div>
+          <button
+            className="ps-nav-btn"
+            onClick={() => goTo(activeIdx + 1)}
+            aria-label="Foto berikutnya"
+          >
+            ›
+          </button>
+        </div>
+      )}
+    </ScrollSlide>
   );
 }
