@@ -179,7 +179,7 @@ body {
   font-family: var(--font-mono);
 }
 
-/* Trip facts overlay — bottom of map */
+/* Trip facts overlay — bottom of map, overlays the MapLibre canvas */
 .trip-facts {
   position: absolute;
   bottom: 16px;
@@ -188,12 +188,15 @@ body {
   display: flex;
   align-items: center;
   gap: 0;
-  background: rgba(12, 10, 9, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(12, 10, 9, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
   border-radius: 100px;
   padding: 8px 20px;
+  z-index: 10;           /* sit above MapLibre canvas */
+  pointer-events: none;  /* don't block map interactions */
+  white-space: nowrap;
 }
 
 .trip-fact {

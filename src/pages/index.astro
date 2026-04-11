@@ -1,7 +1,11 @@
 ---
 import { getDb } from '../lib/db';
 import type { CheckpointWithPhotos } from '../lib/db';
+import { InteractiveMap } from '../components/InteractiveMap';
 import '../styles/global.css';
+
+// Slim coord objects passed to client-side map (no photos = smaller payload)
+type MapCheckpoint = { id: number; location_name: string; lat: number; lng: number };
 
 // ── Server-side data fetch ────────────────────────────────────────────────
 const db = getDb();
@@ -26,6 +30,11 @@ const startTime = checkpoints[0]?.created_at
       day: 'numeric', month: 'long', year: 'numeric',
     })
   : '';
+
+// Slim coord array for the map island (omit photos to keep payload small)
+const mapCheckpoints: MapCheckpoint[] = checkpoints.map(({ id, location_name, lat, lng }) => ({
+  id, location_name, lat, lng,
+}));
 ---
 
 <html lang="id">
@@ -60,46 +69,31 @@ const startTime = checkpoints[0]?.created_at
     <!-- ── Main layout: split panel ─────────────────────────────────── -->
     <div class="journal-layout" id="journal-layout">
 
-      <!-- LEFT / TOP — Map panel (Phase 4 island will go here) -->
+      <!-- LEFT / TOP — Map panel -->
       <aside class="map-panel" id="map-panel" aria-label="Peta perjalanan">
-        <!-- Map placeholder — replaced by InteractiveMap in Phase 4 -->
-        <div class="map-placeholder">
-          <div class="map-placeholder-inner">
-            <div class="map-route-visual" aria-hidden="true">
-              <!-- Animated route dots -->
-              {checkpoints.map((cp, i) => (
-                <div
-                  class="route-dot"
-                  style={`animation-delay: ${i * 0.3}s`}
-                  title={cp.location_name}
-                >
-                  <div class="route-dot-ring"></div>
-                  <div class="route-dot-label">{cp.location_name}</div>
-                </div>
-              ))}
-            </div>
-            <p class="map-placeholder-label">🗺️ Peta interaktif</p>
-            <p class="map-placeholder-sub">Memuat dengan JavaScript...</p>
-          </div>
+        <!-- InteractiveMap island: client:only skips SSR (MapLibre needs WebGL) -->
+        <InteractiveMap
+          client:only="react"
+          checkpoints={mapCheckpoints}
+        />
 
-          <!-- Trip Facts overlay -->
-          <div class="trip-facts">
-            <div class="trip-fact">
-              <span class="trip-fact-value">{checkpoints.length}</span>
-              <span class="trip-fact-label">checkpoint</span>
-            </div>
-            <div class="trip-fact-divider"></div>
-            <div class="trip-fact">
-              <span class="trip-fact-value">
-                {checkpoints.reduce((a, c) => a + c.photos.length, 0)}
-              </span>
-              <span class="trip-fact-label">foto</span>
-            </div>
-            <div class="trip-fact-divider"></div>
-            <div class="trip-fact">
-              <span class="trip-fact-value">{totalKm}+</span>
-              <span class="trip-fact-label">km</span>
-            </div>
+        <!-- Trip Facts overlay — static SSR HTML on top of the map -->
+        <div class="trip-facts">
+          <div class="trip-fact">
+            <span class="trip-fact-value">{checkpoints.length}</span>
+            <span class="trip-fact-label">checkpoint</span>
+          </div>
+          <div class="trip-fact-divider"></div>
+          <div class="trip-fact">
+            <span class="trip-fact-value">
+              {checkpoints.reduce((a, c) => a + c.photos.length, 0)}
+            </span>
+            <span class="trip-fact-label">foto</span>
+          </div>
+          <div class="trip-fact-divider"></div>
+          <div class="trip-fact">
+            <span class="trip-fact-value">{totalKm}+</span>
+            <span class="trip-fact-label">km</span>
           </div>
         </div>
       </aside>
@@ -221,5 +215,36 @@ const startTime = checkpoints[0]?.created_at
         </footer>
       </main>
     </div>
+
+    <!-- ── Scroll Sync Engine ─────────────────────────────────────────── -->
+    <!-- Listens to content-panel scroll, fires ddc:scroll for map island -->
+    <script>
+      (function () {
+        const panel = document.getElementById('content-panel');
+        if (!panel) return;
+
+        let ticking = false;
+
+        function dispatchProgress() {
+          const scrollable = panel.scrollHeight - panel.clientHeight;
+          if (scrollable <= 0) return;
+          const progress = Math.max(0, Math.min(1, panel.scrollTop / scrollable));
+          window.dispatchEvent(
+            new CustomEvent('ddc:scroll', { detail: { progress } })
+          );
+          ticking = false;
+        }
+
+        panel.addEventListener('scroll', () => {
+          if (!ticking) {
+            requestAnimationFrame(dispatchProgress);
+            ticking = true;
+          }
+        }, { passive: true });
+
+        // Fire once on load so map starts at correct position
+        dispatchProgress();
+      })();
+    </script>
   </body>
 </html>
