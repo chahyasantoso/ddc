@@ -200,19 +200,11 @@ body {
   pointer-events: none;
 }
 
-/* ── Animated slot wrapper (one per stack layer) ─────────────────────────── */
-/* The outer motion.div that Framer Motion animates for scroll slide-in/out.  */
-.ps-slot {
-  position: absolute;
-  inset: 0;
-}
-
-/* ── Carousel slide wrapper (front card only) ────────────────────────────── */
-/* Middle layer — handles directional enter/exit animation (±340px).
-   overflow:visible so the card can fly outside slot bounds during transit.   */
-.ps-carousel-slide {
-  position: absolute;
-  inset: 0;
+/* ── Drag area wrapper (inner layer, front card only) ────────────────────── */
+/* Fills the card; interactive drag x composes with outer figure's animate x  */
+.ps-drag-area {
+  width: 100%;
+  height: 100%;
 }
 
 /* ── Base card styles (shared by front + peek) ───────────────────────────── */
