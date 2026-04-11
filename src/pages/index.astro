@@ -1,29 +1,225 @@
 ---
-// DDC Live Travel Journal - Placeholder (Phase 1)
+import { getDb } from '../lib/db';
+import type { CheckpointWithPhotos } from '../lib/db';
 import '../styles/global.css';
+
+// ── Server-side data fetch ────────────────────────────────────────────────
+const db = getDb();
+
+const rawCheckpoints = db
+  .prepare(`SELECT * FROM checkpoints ORDER BY created_at ASC`)
+  .all() as import('../lib/db').Checkpoint[];
+
+const rawPhotos = db
+  .prepare(`SELECT * FROM photos ORDER BY checkpoint_id ASC, "order" ASC`)
+  .all() as import('../lib/db').Photo[];
+
+// Assemble CheckpointWithPhotos
+const checkpoints: CheckpointWithPhotos[] = rawCheckpoints.map((cp) => ({
+  ...cp,
+  photos: rawPhotos.filter((p) => p.checkpoint_id === cp.id),
+}));
+
+const totalKm = 120; // Surabaya → Malang approx
+const startTime = checkpoints[0]?.created_at
+  ? new Date(checkpoints[0].created_at).toLocaleDateString('id-ID', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    })
+  : '';
 ---
 
 <html lang="id">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="DDC — Live motorcycle travel journal. Perjalanan nyata, foto nyata, peta bergerak. Ikuti perjalanan dari Surabaya."
+    />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width" />
-    <meta name="description" content="DDC - Live Motorcycle Travel Journal, Surabaya ke mana saja." />
     <title>DDC — Live Motorcycle Journal</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700;900&display=swap"
+      rel="stylesheet"
+    />
   </head>
-  <body class="bg-stone-950 text-amber-50 min-h-screen flex items-center justify-center font-mono">
-    <div class="text-center space-y-4">
-      <h1 class="text-4xl font-bold text-amber-400 tracking-widest uppercase">DDC</h1>
-      <p class="text-stone-400 text-lg">Live Motorcycle Journal</p>
-      <p class="text-stone-600 text-sm">Surabaya → ?</p>
-      <div class="pt-8 text-stone-700 text-xs">
-        Phase 1 - Backend Ready. Phase 2 coming soon.
-      </div>
-    </div>
+
+  <body>
+    <!-- ── No-JS warning ──────────────────────────────────────────────── -->
     <noscript>
-      <div style="position:fixed;bottom:0;width:100%;background:#1c1917;color:#f59e0b;text-align:center;padding:8px;font-family:monospace;font-size:12px;">
-        JavaScript dinonaktifkan. Aktifkan JS untuk pengalaman scrollytelling penuh.
+      <div class="noscript-banner">
+        ⚠️ JavaScript dinonaktifkan. Aktifkan JS untuk peta interaktif dan animasi scroll.
+        Konten tetap bisa dibaca di bawah.
       </div>
     </noscript>
+
+    <!-- ── Main layout: split panel ─────────────────────────────────── -->
+    <div class="journal-layout" id="journal-layout">
+
+      <!-- LEFT / TOP — Map panel (Phase 4 island will go here) -->
+      <aside class="map-panel" id="map-panel" aria-label="Peta perjalanan">
+        <!-- Map placeholder — replaced by InteractiveMap in Phase 4 -->
+        <div class="map-placeholder">
+          <div class="map-placeholder-inner">
+            <div class="map-route-visual" aria-hidden="true">
+              <!-- Animated route dots -->
+              {checkpoints.map((cp, i) => (
+                <div
+                  class="route-dot"
+                  style={`animation-delay: ${i * 0.3}s`}
+                  title={cp.location_name}
+                >
+                  <div class="route-dot-ring"></div>
+                  <div class="route-dot-label">{cp.location_name}</div>
+                </div>
+              ))}
+            </div>
+            <p class="map-placeholder-label">🗺️ Peta interaktif</p>
+            <p class="map-placeholder-sub">Memuat dengan JavaScript...</p>
+          </div>
+
+          <!-- Trip Facts overlay -->
+          <div class="trip-facts">
+            <div class="trip-fact">
+              <span class="trip-fact-value">{checkpoints.length}</span>
+              <span class="trip-fact-label">checkpoint</span>
+            </div>
+            <div class="trip-fact-divider"></div>
+            <div class="trip-fact">
+              <span class="trip-fact-value">
+                {checkpoints.reduce((a, c) => a + c.photos.length, 0)}
+              </span>
+              <span class="trip-fact-label">foto</span>
+            </div>
+            <div class="trip-fact-divider"></div>
+            <div class="trip-fact">
+              <span class="trip-fact-value">{totalKm}+</span>
+              <span class="trip-fact-label">km</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT / BOTTOM — Scrollable journal content -->
+      <main class="content-panel" id="content-panel">
+
+        <!-- Journal header -->
+        <header class="journal-header">
+          <div class="journal-eyebrow">
+            <span class="live-dot" aria-label="Live"></span>
+            <span>LIVE · {startTime}</span>
+          </div>
+          <h1 class="journal-title">DDC</h1>
+          <p class="journal-subtitle">Live Motorcycle Journal</p>
+          <p class="journal-route">Surabaya → <span class="route-dest">?</span></p>
+        </header>
+
+        <!-- Checkpoint sections -->
+        {checkpoints.length === 0 ? (
+          <div class="empty-state">
+            <p class="empty-icon">🏁</p>
+            <p class="empty-title">Perjalanan belum dimulai</p>
+            <p class="empty-body">Belum ada checkpoint. Tambahkan via admin panel.</p>
+          </div>
+        ) : (
+          <div class="checkpoints-list">
+            {checkpoints.map((cp, cpIdx) => (
+              <section
+                class="checkpoint-section"
+                id={`checkpoint-${cp.id}`}
+                data-checkpoint-id={cp.id}
+                data-lat={cp.lat}
+                data-lng={cp.lng}
+              >
+                <!-- Timeline marker -->
+                <div class="checkpoint-marker" aria-hidden="true">
+                  <div class="marker-line-top" class:list={[cpIdx === 0 ? 'invisible' : '']}></div>
+                  <div class="marker-orb">
+                    <span class="marker-num">{cpIdx + 1}</span>
+                  </div>
+                  <div class="marker-line-bot" class:list={[cpIdx === checkpoints.length - 1 ? 'dashed' : '']}></div>
+                </div>
+
+                <!-- Checkpoint content -->
+                <div class="checkpoint-content">
+                  <!-- Location header -->
+                  <div class="checkpoint-header">
+                    <h2 class="checkpoint-name">{cp.location_name}</h2>
+                    <time class="checkpoint-time" datetime={cp.created_at}>
+                      {new Date(cp.created_at).toLocaleTimeString('id-ID', {
+                        hour: '2-digit', minute: '2-digit',
+                      })} WIB
+                    </time>
+                  </div>
+
+                  <!-- Coordinates badge -->
+                  <div class="checkpoint-coords">
+                    <span>📍</span>
+                    <span class="coords-text">
+                      {cp.lat.toFixed(4)}, {cp.lng.toFixed(4)}
+                    </span>
+                  </div>
+
+                  <!-- Description -->
+                  {cp.description && (
+                    <p class="checkpoint-desc">{cp.description}</p>
+                  )}
+
+                  <!-- Photo stack — Phase 5 will animate these -->
+                  {cp.photos.length > 0 && (
+                    <div
+                      class="photo-stack"
+                      data-photos={cp.photos.length}
+                      aria-label={`${cp.photos.length} foto dari ${cp.location_name}`}
+                    >
+                      {cp.photos.map((photo, photoIdx) => (
+                        <figure
+                          class="photo-card"
+                          data-photo-id={photo.id}
+                          data-photo-index={photoIdx}
+                          style={`--rot: ${(photoIdx % 2 === 0 ? 1 : -1) * (1 + (photoIdx * 1.5))}deg; --delay: ${photoIdx * 0.1}s`}
+                        >
+                          <div class="photo-frame">
+                            <img
+                              src={photo.photo_url}
+                              alt={photo.caption}
+                              loading={cpIdx === 0 && photoIdx === 0 ? 'eager' : 'lazy'}
+                              decoding="async"
+                              class="photo-img"
+                            />
+                          </div>
+                          <figcaption class="photo-caption">{photo.caption}</figcaption>
+                        </figure>
+                      ))}
+                    </div>
+                  )}
+
+                  {cp.photos.length === 0 && (
+                    <div class="no-photos">Belum ada foto di checkpoint ini.</div>
+                  )}
+                </div>
+              </section>
+            ))}
+
+            <!-- Journey continues marker -->
+            <div class="journey-continues">
+              <div class="continues-line"></div>
+              <div class="continues-dot"></div>
+              <p class="continues-label">perjalanan berlanjut...</p>
+            </div>
+          </div>
+        )}
+
+        <!-- Footer -->
+        <footer class="journal-footer">
+          <p>DDC · {new Date().getFullYear()} · Local Dev</p>
+          <a href="/admin" class="admin-link">Admin ↗</a>
+        </footer>
+      </main>
+    </div>
   </body>
 </html>

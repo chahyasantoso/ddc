@@ -1,27 +1,622 @@
 @import "tailwindcss";
 
-/* Adventure theme base */
+/* ═══════════════════════════════════════════════════════════════════════════
+   DDC TRAVEL JOURNAL — Design System
+   Phase 3: Static Timeline & Bottom-Sheet Layout
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Tokens ──────────────────────────────────────────────────────────────── */
 :root {
-  --color-bg: #0c0a09;
-  --color-surface: #1c1917;
-  --color-accent: #f59e0b;
-  --color-accent-dim: #92400e;
-  --color-text: #fef3c7;
-  --color-muted: #78716c;
+  --bg:          #0c0a09;
+  --surface:     #1c1917;
+  --surface-2:   #292524;
+  --surface-3:   #3c3836; /* was missing */
+  --accent:      #f59e0b;
+  --accent-dim:  #92400e;
+  --accent-soft: rgba(245, 158, 11, 0.12);
+  --text:        #fef3c7;
+  --text-muted:  #a8a29e;
+  --text-faint:  #57534e;
+  --border:      rgba(255, 255, 255, 0.07);
+
+  --font-sans:  'Inter', system-ui, sans-serif;
+  --font-mono:  'JetBrains Mono', 'Courier New', monospace;
+
+  --map-height-mobile:  40vh;
+  --content-height-mobile: 60vh;
+
   color-scheme: dark;
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
-}
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+img { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
 
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: 'Courier New', Courier, monospace;
-  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  overflow: hidden;           /* The two panels handle their own scroll */
+  height: 100dvh;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SPLIT PANEL LAYOUT
+   Mobile:  top 40% map  |  bottom 60% content (scroll)
+   Desktop: left 50% map |  right 50% content (scroll), side-by-side
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.journal-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  width: 100%;
+}
+
+/* ── Map panel ───────────────────────────────────────────────────────────── */
+.map-panel {
+  position: relative;
+  height: var(--map-height-mobile);
+  min-height: 200px;
+  flex-shrink: 0;
+  background: var(--surface);
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Content panel ───────────────────────────────────────────────────────── */
+.content-panel {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: y proximity;
+
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+.content-panel::-webkit-scrollbar { width: 4px; }
+.content-panel::-webkit-scrollbar-track { background: transparent; }
+.content-panel::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: 4px;
+}
+
+/* ── Desktop breakpoint ──────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  body { overflow: hidden; }
+
+  .journal-layout {
+    flex-direction: row;
+  }
+
+  .map-panel {
+    width: 50%;
+    height: 100dvh;
+    border-bottom: none;
+    border-right: 1px solid var(--border);
+  }
+
+  .content-panel {
+    width: 50%;
+    height: 100dvh;
+  }
+}
+
+/* ── Wide desktop ────────────────────────────────────────────────────────── */
+@media (min-width: 1280px) {
+  .map-panel    { width: 55%; }
+  .content-panel { width: 45%; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MAP PLACEHOLDER (filled by InteractiveMap in Phase 4)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.map-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background:
+    radial-gradient(ellipse at 30% 70%, rgba(245,158,11,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 20%, rgba(120,80,40,0.08) 0%, transparent 50%),
+    var(--surface);
+}
+
+.map-placeholder-inner {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-route-visual {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.route-dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  animation: routeDotPulse 2s ease-in-out infinite;
+}
+
+.route-dot-ring {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(245,158,11,0.5);
+  animation: dotGlow 2s ease-in-out infinite;
+}
+
+.route-dot-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.map-placeholder-label {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.map-placeholder-sub {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+
+/* Trip facts overlay — bottom of map */
+.trip-facts {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(12, 10, 9, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 8px 20px;
+}
+
+.trip-fact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 14px;
+}
+
+.trip-fact-value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.trip-fact-label {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+
+.trip-fact-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   JOURNAL HEADER
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.journal-header {
+  padding: 32px 24px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.journal-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* Blinking live indicator */
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34,197,94,0.6);
+  animation: livePulse 1.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+.journal-title {
+  font-size: 40px;
+  font-weight: 900;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.journal-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.journal-route {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+}
+
+.route-dest {
+  color: var(--accent);
+  animation: ellipsisBlink 1.5s step-end infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CHECKPOINT TIMELINE
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.checkpoints-list {
+  padding: 8px 0 0;
+}
+
+.checkpoint-section {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  padding: 0 16px 0 0;
+  scroll-snap-align: start;
+}
+
+/* ── Timeline spine ──────────────────────────────────────────────────────── */
+.checkpoint-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 24px;
+}
+
+.marker-line-top,
+.marker-line-bot {
+  width: 2px;
+  flex: 1;
+  background: var(--surface-3);
+  min-height: 12px;
+}
+
+.marker-line-bot.dashed {
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--surface-3) 0,
+    var(--surface-3) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+.invisible { opacity: 0; }
+
+.marker-orb {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 16px rgba(245,158,11,0.2);
+}
+
+.marker-num {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+
+/* ── Checkpoint content ──────────────────────────────────────────────────── */
+.checkpoint-content {
+  padding: 24px 0 32px 4px;
+}
+
+.checkpoint-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.checkpoint-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.checkpoint-time {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.checkpoint-coords {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  margin-bottom: 12px;
+}
+
+.coords-text { letter-spacing: 0.03em; }
+
+.checkpoint-desc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  font-style: italic;
+}
+
+.no-photos {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  padding: 16px 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PHOTO CARDS — Polaroid Stack
+   (Phase 5 will add scroll-bound entry animations)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.photo-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.photo-card {
+  background: var(--surface-2);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow:
+    0 4px 16px rgba(0,0,0,0.4),
+    0 1px 3px rgba(0,0,0,0.3);
+  transform: rotate(var(--rot, 0deg));
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+  /* Phase 5 hook: data-photo-index, data-photo-id are on the element */
+}
+
+.photo-card:hover {
+  transform: rotate(0deg) scale(1.02);
+  box-shadow:
+    0 12px 32px rgba(0,0,0,0.5),
+    0 2px 8px rgba(245,158,11,0.1);
+  z-index: 10;
+}
+
+.photo-frame {
+  aspect-ratio: 4/3;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.photo-card:hover .photo-img {
+  transform: scale(1.04);
+}
+
+.photo-caption {
+  padding: 10px 12px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  font-style: italic;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+/* ── At larger widths, show photos in a 2-column grid ───────────────────── */
+@media (min-width: 480px) {
+  .photo-stack {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  /* First photo is always full width */
+  .photo-card:first-child {
+    grid-column: 1 / -1;
+    transform: rotate(0deg);
+  }
+}
+
+/* On the content-only half (desktop), revert to single or alt layout */
+@media (min-width: 768px) {
+  .photo-stack {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .photo-card:first-child { grid-column: auto; }
+  
+  .checkpoint-content { padding-left: 8px; }
+  .journal-header { padding: 36px 28px 28px; }
+  .checkpoint-section { padding-right: 28px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   JOURNEY CONTINUES MARKER
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.journey-continues {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0 32px;
+  gap: 8px;
+}
+
+.continues-line {
+  width: 2px;
+  height: 32px;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--accent-dim) 0,
+    var(--accent-dim) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+.continues-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-dim);
+  animation: dotGlow 2s ease-in-out infinite;
+}
+
+.continues-label {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EMPTY STATE
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.empty-state {
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.empty-icon { font-size: 48px; margin-bottom: 16px; }
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.empty-body {
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FOOTER
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.journal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+}
+
+.admin-link {
+  color: var(--accent-dim);
+  transition: color 0.2s;
+}
+
+.admin-link:hover { color: var(--accent); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   NOSCRIPT BANNER
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.noscript-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(28, 25, 23, 0.95);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--accent-dim);
+  color: var(--accent);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  padding: 10px 20px;
+  text-align: center;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   KEYFRAMES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 8px rgba(34,197,94,0.6); }
+  50%       { opacity: 0.6; transform: scale(0.85); box-shadow: 0 0 4px rgba(34,197,94,0.3); }
+}
+
+@keyframes dotGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.5); }
+  50%       { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+}
+
+@keyframes routeDotPulse {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-3px); }
+}
+
+@keyframes ellipsisBlink {
+  0%, 49%  { opacity: 1; }
+  50%, 100% { opacity: 0.3; }
 }
