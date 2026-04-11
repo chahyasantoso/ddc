@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   motion, AnimatePresence,
-  useMotionValue, useTransform,
+  useMotionValue,
 } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import type { Checkpoint, Photo } from '../lib/types.client';
@@ -73,7 +73,6 @@ export function FloatingPhotos({ checkpoint, reveal }: Props) {
 
   // Drag motion values — applied on the inner drag figure only
   const dragX = useMotionValue(0);
-  const tilt  = useTransform(dragX, [-150, 0, 150], [-12, 0, 12]);
 
   if (!total) return null;
 
@@ -149,7 +148,7 @@ export function FloatingPhotos({ checkpoint, reveal }: Props) {
                     <motion.figure
                       className="ps-card ps-front"
                       drag={total > 1 ? 'x' : false}
-                      style={{ x: dragX, rotate: tilt, touchAction: 'pan-y' }}
+                      style={{ x: dragX, touchAction: 'pan-y' }}
                       dragConstraints={{ left: 0, right: 0 }}
                       dragElastic={0.35}
                       whileDrag={{ cursor: 'grabbing', scale: 1.02 }}
