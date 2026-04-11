@@ -429,18 +429,16 @@ body {
   box-shadow:
     0 4px 16px rgba(0,0,0,0.4),
     0 1px 3px rgba(0,0,0,0.3);
-  transform: rotate(var(--rot, 0deg));
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  /* transform handled by Framer Motion (rotate, scale, y) */
+  transition: box-shadow 0.3s ease;
   cursor: pointer;
-  /* Phase 5 hook: data-photo-index, data-photo-id are on the element */
 }
 
 .photo-card:hover {
-  transform: rotate(0deg) scale(1.02);
+  /* scale + rotate handled by Framer Motion whileHover */
   box-shadow:
     0 12px 32px rgba(0,0,0,0.5),
     0 2px 8px rgba(245,158,11,0.1);
-  z-index: 10;
 }
 
 .photo-frame {

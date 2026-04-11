@@ -104,7 +104,8 @@ function buildMarkersGeoJSON(checkpoints: CheckpointCoord[]) {
         type: 'Point' as const,
         coordinates: [cp.lng, cp.lat],
       },
-      properties: { name: cp.location_name, index: i },
+      // id included so we can filter active checkpoint in MapLibre
+      properties: { id: cp.id, name: cp.location_name, index: i },
     })),
   };
 }
@@ -116,6 +117,9 @@ const ZOOM = 8.2;
 export function InteractiveMap({ checkpoints }: InteractiveMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+
+  // Active checkpoint (for marker highlight) — default to first
+  const [activeId, setActiveId] = useState<number>(checkpoints[0]?.id ?? -1);
 
   const initialCenter =
     checkpoints.length > 0
@@ -145,14 +149,42 @@ export function InteractiveMap({ checkpoints }: InteractiveMapProps) {
     [checkpoints]
   );
 
+  // ── Listen for active checkpoint events from AnimatedCheckpointList ────────
+  const handleActiveEvent = useCallback((e: Event) => {
+    const { id } = (e as CustomEvent<{ id: number }>).detail;
+    setActiveId(id);
+  }, []);
+
   useEffect(() => {
     window.addEventListener('ddc:scroll', handleScrollEvent);
-    return () => window.removeEventListener('ddc:scroll', handleScrollEvent);
-  }, [handleScrollEvent]);
+    window.addEventListener('ddc:checkpoint-active', handleActiveEvent);
+    return () => {
+      window.removeEventListener('ddc:scroll', handleScrollEvent);
+      window.removeEventListener('ddc:checkpoint-active', handleActiveEvent);
+    };
+  }, [handleScrollEvent, handleActiveEvent]);
 
   // ── GeoJSON data ──────────────────────────────────────────────────────────
   const routeGeoJSON = buildRouteGeoJSON(checkpoints);
   const markersGeoJSON = buildMarkersGeoJSON(checkpoints);
+
+  // Active checkpoint as a single-feature GeoJSON for the highlight layers
+  const activeCheckpoint = checkpoints.find((cp) => cp.id === activeId) ?? checkpoints[0];
+  const activeMarkerGeoJSON = activeCheckpoint
+    ? {
+        type: 'FeatureCollection' as const,
+        features: [
+          {
+            type: 'Feature' as const,
+            geometry: {
+              type: 'Point' as const,
+              coordinates: [activeCheckpoint.lng, activeCheckpoint.lat],
+            },
+            properties: { id: activeCheckpoint.id },
+          },
+        ],
+      }
+    : null;
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -200,7 +232,7 @@ export function InteractiveMap({ checkpoints }: InteractiveMapProps) {
           </Source>
         )}
 
-        {/* Checkpoint markers */}
+        {/* Checkpoint markers — all */}
         <Source id="markers" type="geojson" data={markersGeoJSON}>
           {/* Outer glow */}
           <Layer
@@ -225,6 +257,35 @@ export function InteractiveMap({ checkpoints }: InteractiveMapProps) {
             }}
           />
         </Source>
+
+        {/* Active checkpoint highlight — pulsing ring over the active marker */}
+        {activeMarkerGeoJSON && (
+          <Source id="active-marker" type="geojson" data={activeMarkerGeoJSON}>
+            {/* Outer animated glow */}
+            <Layer
+              id="active-outer-glow"
+              type="circle"
+              paint={{
+                'circle-radius': 26,
+                'circle-color': '#f59e0b',
+                'circle-opacity': 0.18,
+                'circle-blur': 1.2,
+              }}
+            />
+            {/* Inner bright ring */}
+            <Layer
+              id="active-ring"
+              type="circle"
+              paint={{
+                'circle-radius': 11,
+                'circle-color': '#fbbf24',
+                'circle-stroke-color': '#fff',
+                'circle-stroke-width': 2.5,
+                'circle-opacity': 1,
+              }}
+            />
+          </Source>
+        )}
       </Map>
 
       {/* Camera position indicator (for Phase 6 sync debug) */}

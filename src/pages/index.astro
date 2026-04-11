@@ -2,6 +2,7 @@
 import { getDb } from '../lib/db';
 import type { CheckpointWithPhotos } from '../lib/db';
 import { InteractiveMap } from '../components/InteractiveMap';
+import { AnimatedCheckpointList } from '../components/AnimatedCheckpointList';
 import '../styles/global.css';
 
 // Slim coord objects passed to client-side map (no photos = smaller payload)
@@ -120,92 +121,58 @@ const mapCheckpoints: MapCheckpoint[] = checkpoints.map(({ id, location_name, la
             <p class="empty-body">Belum ada checkpoint. Tambahkan via admin panel.</p>
           </div>
         ) : (
-          <div class="checkpoints-list">
-            {checkpoints.map((cp, cpIdx) => (
-              <section
-                class="checkpoint-section"
-                id={`checkpoint-${cp.id}`}
-                data-checkpoint-id={cp.id}
-                data-lat={cp.lat}
-                data-lng={cp.lng}
-              >
-                <!-- Timeline marker -->
-                <div class="checkpoint-marker" aria-hidden="true">
-                  <div class="marker-line-top" class:list={[cpIdx === 0 ? 'invisible' : '']}></div>
-                  <div class="marker-orb">
-                    <span class="marker-num">{cpIdx + 1}</span>
-                  </div>
-                  <div class="marker-line-bot" class:list={[cpIdx === checkpoints.length - 1 ? 'dashed' : '']}></div>
-                </div>
+          <>
+            {/* ── Animated version (requires JS) ───────────────────────────── */}
+            <AnimatedCheckpointList client:only="react" checkpoints={checkpoints} />
 
-                <!-- Checkpoint content -->
-                <div class="checkpoint-content">
-                  <!-- Location header -->
-                  <div class="checkpoint-header">
-                    <h2 class="checkpoint-name">{cp.location_name}</h2>
-                    <time class="checkpoint-time" datetime={cp.created_at}>
-                      {new Date(cp.created_at).toLocaleTimeString('id-ID', {
-                        hour: '2-digit', minute: '2-digit',
-                      })} WIB
-                    </time>
-                  </div>
-
-                  <!-- Coordinates badge -->
-                  <div class="checkpoint-coords">
-                    <span>📍</span>
-                    <span class="coords-text">
-                      {cp.lat.toFixed(4)}, {cp.lng.toFixed(4)}
-                    </span>
-                  </div>
-
-                  <!-- Description -->
-                  {cp.description && (
-                    <p class="checkpoint-desc">{cp.description}</p>
-                  )}
-
-                  <!-- Photo stack — Phase 5 will animate these -->
-                  {cp.photos.length > 0 && (
-                    <div
-                      class="photo-stack"
-                      data-photos={cp.photos.length}
-                      aria-label={`${cp.photos.length} foto dari ${cp.location_name}`}
-                    >
-                      {cp.photos.map((photo, photoIdx) => (
-                        <figure
-                          class="photo-card"
-                          data-photo-id={photo.id}
-                          data-photo-index={photoIdx}
-                          style={`--rot: ${(photoIdx % 2 === 0 ? 1 : -1) * (1 + (photoIdx * 1.5))}deg; --delay: ${photoIdx * 0.1}s`}
-                        >
-                          <div class="photo-frame">
-                            <img
-                              src={photo.photo_url}
-                              alt={photo.caption}
-                              loading={cpIdx === 0 && photoIdx === 0 ? 'eager' : 'lazy'}
-                              decoding="async"
-                              class="photo-img"
-                            />
-                          </div>
-                          <figcaption class="photo-caption">{photo.caption}</figcaption>
-                        </figure>
-                      ))}
+            {/* ── Static fallback (shown only when JS is disabled) ─────────── */}
+            <noscript>
+              <div class="checkpoints-list">
+                {checkpoints.map((cp, cpIdx) => (
+                  <section
+                    class="checkpoint-section"
+                    id={`checkpoint-${cp.id}-static`}
+                  >
+                    <div class="checkpoint-marker" aria-hidden="true">
+                      <div class={cpIdx === 0 ? 'marker-line-top invisible' : 'marker-line-top'}></div>
+                      <div class="marker-orb"><span class="marker-num">{cpIdx + 1}</span></div>
+                      <div class={cpIdx === checkpoints.length - 1 ? 'marker-line-bot dashed' : 'marker-line-bot'}></div>
                     </div>
-                  )}
-
-                  {cp.photos.length === 0 && (
-                    <div class="no-photos">Belum ada foto di checkpoint ini.</div>
-                  )}
+                    <div class="checkpoint-content">
+                      <div class="checkpoint-header">
+                        <h2 class="checkpoint-name">{cp.location_name}</h2>
+                        <time class="checkpoint-time" datetime={cp.created_at}>
+                          {new Date(cp.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                        </time>
+                      </div>
+                      <div class="checkpoint-coords">
+                        <span>📍</span>
+                        <span class="coords-text">{cp.lat.toFixed(4)}, {cp.lng.toFixed(4)}</span>
+                      </div>
+                      {cp.description && <p class="checkpoint-desc">{cp.description}</p>}
+                      {cp.photos.length > 0 && (
+                        <div class="photo-stack">
+                          {cp.photos.map((photo, pi) => (
+                            <figure class="photo-card" style={`--rot: ${(pi % 2 === 0 ? 1 : -1) * (0.8 + pi * 1.2)}deg`}>
+                              <div class="photo-frame">
+                                <img src={photo.photo_url} alt={photo.caption} loading="lazy" decoding="async" class="photo-img" />
+                              </div>
+                              <figcaption class="photo-caption">{photo.caption}</figcaption>
+                            </figure>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                ))}
+                <div class="journey-continues">
+                  <div class="continues-line"></div>
+                  <div class="continues-dot"></div>
+                  <p class="continues-label">perjalanan berlanjut...</p>
                 </div>
-              </section>
-            ))}
-
-            <!-- Journey continues marker -->
-            <div class="journey-continues">
-              <div class="continues-line"></div>
-              <div class="continues-dot"></div>
-              <p class="continues-label">perjalanan berlanjut...</p>
-            </div>
-          </div>
+              </div>
+            </noscript>
+          </>
         )}
 
         <!-- Footer -->
@@ -226,9 +193,11 @@ const mapCheckpoints: MapCheckpoint[] = checkpoints.map(({ id, location_name, la
         let ticking = false;
 
         function dispatchProgress() {
-          const scrollable = panel.scrollHeight - panel.clientHeight;
+          // panel is guaranteed non-null here: the early-return above acts as a guard.
+          // TypeScript loses the narrowing across the closure boundary, so we assert.
+          const scrollable = panel!.scrollHeight - panel!.clientHeight;
           if (scrollable <= 0) return;
-          const progress = Math.max(0, Math.min(1, panel.scrollTop / scrollable));
+          const progress = Math.max(0, Math.min(1, panel!.scrollTop / scrollable));
           window.dispatchEvent(
             new CustomEvent('ddc:scroll', { detail: { progress } })
           );
@@ -244,6 +213,16 @@ const mapCheckpoints: MapCheckpoint[] = checkpoints.map(({ id, location_name, la
 
         // Fire once on load so map starts at correct position
         dispatchProgress();
+        // ── Wheel forwarding ─────────────────────────────────────────────
+        // When scroll wheel is used over the MAP panel, forward it to the
+        // CONTENT panel so the journal still scrolls normally.
+        const mapPanel = document.getElementById('map-panel');
+        if (mapPanel) {
+          mapPanel.addEventListener('wheel', (e) => {
+            e.preventDefault(); // stop map panel from trying to scroll
+            panel!.scrollBy({ top: e.deltaY, behavior: 'instant' });
+          }, { passive: false });
+        }
       })();
     </script>
   </body>
