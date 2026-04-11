@@ -54,7 +54,21 @@ const ghostHeight = `${Math.max(checkpoints.length, 1) * 200}vh`;
 
   <body>
     <!-- ── Ghost scroll driver (transparent, drives window.scrollY) ──────── -->
-    <div class="scroll-ghost" style={`height: ${ghostHeight}`}></div>
+    <div class="scroll-ghost" style={`height: ${ghostHeight}; position: relative;`}>
+      {checkpoints.length > 1 && checkpoints.map((_, i) => (
+        <div 
+          style={`
+            position: absolute; 
+            top: calc(${i / (checkpoints.length - 1)} * (100% - 100vh)); 
+            left: 0; 
+            width: 100%; 
+            height: 10px; 
+            scroll-snap-align: start;
+            pointer-events: none;
+          `}
+        ></div>
+      ))}
+    </div>
 
     <!-- ── Fixed UI layer ─────────────────────────────────────────────────── -->
     <div class="fixed-layer">

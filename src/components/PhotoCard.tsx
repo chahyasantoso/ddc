@@ -1,28 +1,42 @@
 import type { Photo } from '../lib/types.client';
 
-interface PhotoCardProps {
-  photo: Photo;
+interface Props {
+  photo      : Photo;
+  showFooter?: boolean; // show caption + counter overlay on top card
+  counter?   : string;  // e.g. "2 / 5"
 }
 
 /**
- * Pure presentational component for a single floating photo card.
- * Renders image + optional caption with hover zoom effect (CSS-driven).
- * No animation logic — wrap with <ScrollSlide> for scroll-linked animation.
+ * Pure presentational photo card content.
+ * Renders: image frame + (optionally) caption/counter footer overlay.
+ *
+ * No animation logic — wrap with <ScrollSlide> and a drag motion.div
+ * from the parent for interactive behaviour.
  */
-export function PhotoCard({ photo }: PhotoCardProps) {
+export function PhotoCard({ photo, showFooter = false, counter }: Props) {
   return (
     <>
       <div className="fp-frame">
         <img
+          className="fp-img"
           src={photo.photo_url}
-          alt={photo.caption}
+          alt={photo.caption ?? ''}
+          draggable={false}
+          onDragStart={e => e.preventDefault()}
           loading="lazy"
           decoding="async"
-          className="fp-img"
         />
       </div>
-      {photo.caption && (
-        <figcaption className="fp-caption">{photo.caption}</figcaption>
+
+      {showFooter && (photo.caption || counter) && (
+        <div className="ps-footer">
+          {photo.caption && (
+            <p className="ps-caption">{photo.caption}</p>
+          )}
+          {counter && (
+            <span className="ps-counter">{counter}</span>
+          )}
+        </div>
       )}
     </>
   );
