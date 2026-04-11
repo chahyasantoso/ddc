@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Map, { Source, Layer, type MapRef } from 'react-map-gl/maplibre';
+import Map, { Source, Layer, Marker, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -26,71 +26,66 @@ function getCameraFromProgress(
   if (checkpoints.length === 0) return { lat: -7.5, lng: 112.5 };
   if (checkpoints.length === 1) return { lat: checkpoints[0].lat, lng: checkpoints[0].lng };
 
-  const segmentCount = checkpoints.length - 1;
+  const segmentCount  = checkpoints.length - 1;
   const segmentLength = 1 / segmentCount;
-  const rawIndex = progress / segmentLength;
-  const segIdx = Math.min(Math.floor(rawIndex), segmentCount - 1);
-  const localT = (rawIndex - segIdx) / 1; // already 0-1 within segment
+  const rawIndex      = progress / segmentLength;
+  const segIdx        = Math.min(Math.floor(rawIndex), segmentCount - 1);
+  const localT        = rawIndex - segIdx;
 
   const a = checkpoints[segIdx];
   const b = checkpoints[segIdx + 1];
-
   return {
     lat: lerp(a.lat, b.lat, localT),
     lng: lerp(a.lng, b.lng, localT),
   };
 }
 
-// ── Map style (dark minimal, no external tiles) ───────────────────────────────
+// Compass bearing (degrees clockwise from north) between two points
+function getBearing(
+  from: CheckpointCoord,
+  to: CheckpointCoord
+): number {
+  const dLng = to.lng - from.lng;
+  const dLat = to.lat - from.lat;
+  const angle = Math.atan2(dLng, dLat) * (180 / Math.PI);
+  return (angle + 360) % 360;
+}
+
+function getMotoBearing(
+  checkpoints: CheckpointCoord[],
+  progress: number
+): number {
+  if (checkpoints.length < 2) return 0;
+  const segCount = checkpoints.length - 1;
+  const segSize  = 1 / segCount;
+  const segIdx   = Math.min(Math.floor(progress / segSize), segCount - 1);
+  return getBearing(checkpoints[segIdx], checkpoints[segIdx + 1]);
+}
+
+// ── Map style (dark minimal) ─────────────────────────────────────────────────
 const MAP_STYLE = {
   version: 8 as const,
-  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+  glyphs : 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
   sources: {
-    java: {
-      type: 'geojson' as const,
-      data: '/java.geojson',
-    },
+    java: { type: 'geojson' as const, data: '/java.geojson' },
   },
   layers: [
-    // background ocean
-    {
-      id: 'background',
-      type: 'background' as const,
-      paint: { 'background-color': '#0f0e0d' },
-    },
-    // island fill
-    {
-      id: 'java-fill',
-      type: 'fill' as const,
-      source: 'java',
-      paint: {
-        'fill-color': '#2a2520',
-        'fill-opacity': 0.95,
-      },
-    },
-    // island outline
-    {
-      id: 'java-outline',
-      type: 'line' as const,
-      source: 'java',
-      paint: {
-        'line-color': '#4a4540',
-        'line-width': 0.8,
-        'line-opacity': 0.7,
-      },
-    },
+    { id: 'background', type: 'background' as const,
+      paint: { 'background-color': '#0f0e0d' } },
+    { id: 'java-fill', type: 'fill' as const, source: 'java',
+      paint: { 'fill-color': '#1e1a18', 'fill-opacity': 0.97 } },
+    { id: 'java-outline', type: 'line' as const, source: 'java',
+      paint: { 'line-color': '#3d3530', 'line-width': 0.8, 'line-opacity': 0.7 } },
   ],
 };
 
-// ── Route GeoJSON builder ─────────────────────────────────────────────────────
+// ── GeoJSON builders ─────────────────────────────────────────────────────────
 function buildRouteGeoJSON(checkpoints: CheckpointCoord[]) {
   if (checkpoints.length < 2) return null;
   return {
     type: 'Feature' as const,
-    geometry: {
-      type: 'LineString' as const,
-      coordinates: checkpoints.map((cp) => [cp.lng, cp.lat]),
-    },
+    geometry: { type: 'LineString' as const,
+      coordinates: checkpoints.map((cp) => [cp.lng, cp.lat]) },
     properties: {},
   };
 }
@@ -100,91 +95,81 @@ function buildMarkersGeoJSON(checkpoints: CheckpointCoord[]) {
     type: 'FeatureCollection' as const,
     features: checkpoints.map((cp, i) => ({
       type: 'Feature' as const,
-      geometry: {
-        type: 'Point' as const,
-        coordinates: [cp.lng, cp.lat],
-      },
-      // id included so we can filter active checkpoint in MapLibre
+      geometry: { type: 'Point' as const,
+        coordinates: [cp.lng, cp.lat] },
       properties: { id: cp.id, name: cp.location_name, index: i },
     })),
   };
 }
 
-// ── UNIFORM ZOOM ──────────────────────────────────────────────────────────────
-const ZOOM = 8.2;
+// ── Constants ────────────────────────────────────────────────────────────────
+const ZOOM = 8.5;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function InteractiveMap({ checkpoints }: InteractiveMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Active checkpoint (for marker highlight) — default to first
-  const [activeId, setActiveId] = useState<number>(checkpoints[0]?.id ?? -1);
-
-  const initialCenter =
-    checkpoints.length > 0
-      ? { lat: checkpoints[0].lat, lng: checkpoints[0].lng }
-      : { lat: -7.5, lng: 112.0 };
+  const initialCenter = checkpoints.length > 0
+    ? { lat: checkpoints[0].lat, lng: checkpoints[0].lng }
+    : { lat: -7.5, lng: 112.0 };
 
   const [viewState, setViewState] = useState({
-    latitude: initialCenter.lat,
+    latitude : initialCenter.lat,
     longitude: initialCenter.lng,
-    zoom: ZOOM,
-    pitch: 30,
+    zoom     : ZOOM,
+    pitch    : 40,
+    bearing  : 0,
+  });
+
+  // Motorcycle position + bearing tracks the scroll-interpolated path
+  const [motoPos, setMotoPos] = useState({
+    lat    : initialCenter.lat,
+    lng    : initialCenter.lng,
     bearing: 0,
   });
 
-  // ── Listen for scroll events from the content panel ───────────────────────
-  const handleScrollEvent = useCallback(
-    (e: Event) => {
-      if (checkpoints.length < 2) return;
-      const { progress } = (e as CustomEvent<{ progress: number }>).detail;
-      const camera = getCameraFromProgress(checkpoints, progress);
-      setViewState((prev) => ({
-        ...prev,
-        latitude: camera.lat,
-        longitude: camera.lng,
-      }));
-    },
-    [checkpoints]
-  );
+  // Active checkpoint highlight (driven by ddc:checkpoint-active)
+  const [activeId, setActiveId] = useState<number>(checkpoints[0]?.id ?? -1);
 
-  // ── Listen for active checkpoint events from AnimatedCheckpointList ────────
-  const handleActiveEvent = useCallback((e: Event) => {
-    const { id } = (e as CustomEvent<{ id: number }>).detail;
-    setActiveId(id);
+  // ── Listen to ddc:scroll ──────────────────────────────────────────────────
+  const handleScroll = useCallback((e: Event) => {
+    if (checkpoints.length < 2) return;
+    const { progress } = (e as CustomEvent<{ progress: number }>).detail;
+    const pos     = getCameraFromProgress(checkpoints, progress);
+    const bearing = getMotoBearing(checkpoints, progress);
+    setViewState((prev) => ({ ...prev, latitude: pos.lat, longitude: pos.lng }));
+    setMotoPos({ lat: pos.lat, lng: pos.lng, bearing });
+  }, [checkpoints]);
+
+  // ── Listen to ddc:checkpoint-active ──────────────────────────────────────
+  const handleActive = useCallback((e: Event) => {
+    setActiveId((e as CustomEvent<{ id: number }>).detail.id);
   }, []);
 
   useEffect(() => {
-    window.addEventListener('ddc:scroll', handleScrollEvent);
-    window.addEventListener('ddc:checkpoint-active', handleActiveEvent);
+    window.addEventListener('ddc:scroll', handleScroll);
+    window.addEventListener('ddc:checkpoint-active', handleActive);
     return () => {
-      window.removeEventListener('ddc:scroll', handleScrollEvent);
-      window.removeEventListener('ddc:checkpoint-active', handleActiveEvent);
+      window.removeEventListener('ddc:scroll', handleScroll);
+      window.removeEventListener('ddc:checkpoint-active', handleActive);
     };
-  }, [handleScrollEvent, handleActiveEvent]);
+  }, [handleScroll, handleActive]);
 
-  // ── GeoJSON data ──────────────────────────────────────────────────────────
-  const routeGeoJSON = buildRouteGeoJSON(checkpoints);
+  // ── GeoJSON ───────────────────────────────────────────────────────────────
+  const routeGeoJSON   = buildRouteGeoJSON(checkpoints);
   const markersGeoJSON = buildMarkersGeoJSON(checkpoints);
 
-  // Active checkpoint as a single-feature GeoJSON for the highlight layers
-  const activeCheckpoint = checkpoints.find((cp) => cp.id === activeId) ?? checkpoints[0];
-  const activeMarkerGeoJSON = activeCheckpoint
-    ? {
-        type: 'FeatureCollection' as const,
-        features: [
-          {
-            type: 'Feature' as const,
-            geometry: {
-              type: 'Point' as const,
-              coordinates: [activeCheckpoint.lng, activeCheckpoint.lat],
-            },
-            properties: { id: activeCheckpoint.id },
-          },
-        ],
-      }
-    : null;
+  const activeCheckpoint   = checkpoints.find((cp) => cp.id === activeId) ?? checkpoints[0];
+  const activeMarkerGeoJSON = activeCheckpoint ? {
+    type: 'FeatureCollection' as const,
+    features: [{
+      type: 'Feature' as const,
+      geometry: { type: 'Point' as const,
+        coordinates: [activeCheckpoint.lng, activeCheckpoint.lat] },
+      properties: { id: activeCheckpoint.id },
+    }],
+  } : null;
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -202,109 +187,55 @@ export function InteractiveMap({ checkpoints }: InteractiveMapProps) {
         keyboard={false}
         style={{ width: '100%', height: '100%' }}
       >
-        {/* Route line */}
+        {/* ── Route line ─────────────────────────────────────────────── */}
         {routeGeoJSON && (
           <Source id="route" type="geojson" data={routeGeoJSON}>
-            {/* Glow underline */}
-            <Layer
-              id="route-glow"
-              type="line"
-              paint={{
-                'line-color': '#f59e0b',
-                'line-width': 6,
-                'line-opacity': 0.15,
-                'line-blur': 4,
-              }}
-              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            />
-            {/* Dashed line */}
-            <Layer
-              id="route-dashed"
-              type="line"
-              paint={{
-                'line-color': '#f59e0b',
-                'line-width': 2,
-                'line-opacity': 0.85,
-                'line-dasharray': [2, 3],
-              }}
-              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            />
+            <Layer id="route-glow" type="line"
+              paint={{ 'line-color': '#f59e0b', 'line-width': 8,
+                'line-opacity': 0.12, 'line-blur': 6 }}
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
+            <Layer id="route-dashed" type="line"
+              paint={{ 'line-color': '#f59e0b', 'line-width': 2,
+                'line-opacity': 0.7, 'line-dasharray': [2, 3] }}
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
           </Source>
         )}
 
-        {/* Checkpoint markers — all */}
+        {/* ── All checkpoint dots ─────────────────────────────────────── */}
         <Source id="markers" type="geojson" data={markersGeoJSON}>
-          {/* Outer glow */}
-          <Layer
-            id="markers-glow"
-            type="circle"
-            paint={{
-              'circle-radius': 14,
-              'circle-color': '#f59e0b',
-              'circle-opacity': 0.12,
-              'circle-blur': 1,
-            }}
-          />
-          {/* Main dot */}
-          <Layer
-            id="markers-dot"
-            type="circle"
-            paint={{
-              'circle-radius': 6,
-              'circle-color': '#f59e0b',
-              'circle-stroke-color': '#1c1917',
-              'circle-stroke-width': 2,
-            }}
-          />
+          <Layer id="markers-glow" type="circle"
+            paint={{ 'circle-radius': 14, 'circle-color': '#f59e0b',
+              'circle-opacity': 0.1, 'circle-blur': 1 }} />
+          <Layer id="markers-dot" type="circle"
+            paint={{ 'circle-radius': 5, 'circle-color': '#f59e0b',
+              'circle-stroke-color': '#1c1917', 'circle-stroke-width': 1.5 }} />
         </Source>
 
-        {/* Active checkpoint highlight — pulsing ring over the active marker */}
+        {/* ── Active checkpoint ring ──────────────────────────────────── */}
         {activeMarkerGeoJSON && (
           <Source id="active-marker" type="geojson" data={activeMarkerGeoJSON}>
-            {/* Outer animated glow */}
-            <Layer
-              id="active-outer-glow"
-              type="circle"
-              paint={{
-                'circle-radius': 26,
-                'circle-color': '#f59e0b',
-                'circle-opacity': 0.18,
-                'circle-blur': 1.2,
-              }}
-            />
-            {/* Inner bright ring */}
-            <Layer
-              id="active-ring"
-              type="circle"
-              paint={{
-                'circle-radius': 11,
-                'circle-color': '#fbbf24',
-                'circle-stroke-color': '#fff',
-                'circle-stroke-width': 2.5,
-                'circle-opacity': 1,
-              }}
-            />
+            <Layer id="active-outer-glow" type="circle"
+              paint={{ 'circle-radius': 28, 'circle-color': '#f59e0b',
+                'circle-opacity': 0.15, 'circle-blur': 1.5 }} />
+            <Layer id="active-ring" type="circle"
+              paint={{ 'circle-radius': 10, 'circle-color': '#fbbf24',
+                'circle-stroke-color': '#fff', 'circle-stroke-width': 2.5 }} />
           </Source>
         )}
-      </Map>
 
-      {/* Camera position indicator (for Phase 6 sync debug) */}
-      {mapLoaded && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 12,
-            left: 12,
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: 10,
-            color: 'rgba(168,162,158,0.6)',
-            pointerEvents: 'none',
-            lineHeight: 1.6,
-          }}
-        >
-          {viewState.latitude.toFixed(4)}, {viewState.longitude.toFixed(4)}
-        </div>
-      )}
+        {/* ── Motorcycle marker ───────────────────────────────────────── */}
+        {mapLoaded && (
+          <Marker longitude={motoPos.lng} latitude={motoPos.lat} anchor="center">
+            <div
+              className="moto-marker"
+              style={{ transform: `rotate(${motoPos.bearing}deg)` }}
+              title="DDC Motorcycle"
+            >
+              🏍️
+            </div>
+          </Marker>
+        )}
+      </Map>
     </div>
   );
 }

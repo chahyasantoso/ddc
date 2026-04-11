@@ -2,10 +2,10 @@
 import { getDb } from '../lib/db';
 import type { CheckpointWithPhotos } from '../lib/db';
 import { InteractiveMap } from '../components/InteractiveMap';
-import { AnimatedCheckpointList } from '../components/AnimatedCheckpointList';
+import { ScrollytellingUI } from '../components/ScrollytellingUI';
 import '../styles/global.css';
 
-// Slim coord objects passed to client-side map (no photos = smaller payload)
+// Slim coord type for the map island (no photos = smaller JSON payload)
 type MapCheckpoint = { id: number; location_name: string; lat: number; lng: number };
 
 // ── Server-side data fetch ────────────────────────────────────────────────
@@ -19,23 +19,19 @@ const rawPhotos = db
   .prepare(`SELECT * FROM photos ORDER BY checkpoint_id ASC, "order" ASC`)
   .all() as import('../lib/db').Photo[];
 
-// Assemble CheckpointWithPhotos
+// Assemble CheckpointWithPhotos (full data for UI island)
 const checkpoints: CheckpointWithPhotos[] = rawCheckpoints.map((cp) => ({
   ...cp,
   photos: rawPhotos.filter((p) => p.checkpoint_id === cp.id),
 }));
 
-const totalKm = 120; // Surabaya → Malang approx
-const startTime = checkpoints[0]?.created_at
-  ? new Date(checkpoints[0].created_at).toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'long', year: 'numeric',
-    })
-  : '';
+// Slim list for map island (smaller prop payload)
+const mapCheckpoints: MapCheckpoint[] = checkpoints.map(
+  ({ id, location_name, lat, lng }) => ({ id, location_name, lat, lng })
+);
 
-// Slim coord array for the map island (omit photos to keep payload small)
-const mapCheckpoints: MapCheckpoint[] = checkpoints.map(({ id, location_name, lat, lng }) => ({
-  id, location_name, lat, lng,
-}));
+// Ghost scroll height: each checkpoint gets 200vh of scroll real estate
+const ghostHeight = `${Math.max(checkpoints.length, 1) * 200}vh`;
 ---
 
 <html lang="id">
@@ -47,183 +43,107 @@ const mapCheckpoints: MapCheckpoint[] = checkpoints.map(({ id, location_name, la
       content="DDC — Live motorcycle travel journal. Perjalanan nyata, foto nyata, peta bergerak. Ikuti perjalanan dari Surabaya."
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>DDC — Live Motorcycle Journal</title>
-
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
+    <title>DDC — Live Motorcycle Journal</title>
   </head>
 
   <body>
-    <!-- ── No-JS warning ──────────────────────────────────────────────── -->
+    <!-- ── Ghost scroll driver (transparent, drives window.scrollY) ──────── -->
+    <div class="scroll-ghost" style={`height: ${ghostHeight}`}></div>
+
+    <!-- ── Fixed UI layer ─────────────────────────────────────────────────── -->
+    <div class="fixed-layer">
+
+      <!-- Full-screen map (WebGL) -->
+      <div class="map-fullscreen">
+        <InteractiveMap client:only="react" checkpoints={mapCheckpoints} />
+      </div>
+
+      <!-- HUD: top bar with branding -->
+      <div class="hud-bar">
+        <span class="hud-live-dot"></span>
+        <span class="hud-title">DDC</span>
+        <span class="hud-subtitle">Live Motorcycle Journal</span>
+      </div>
+
+      <!-- Admin link -->
+      <a href="/admin" class="admin-link-fixed">Admin ↗</a>
+
+      <!-- Scrollytelling UI: floating photos + checkpoint info card -->
+      <!-- Only mounts when checkpoints exist -->
+      {checkpoints.length > 0 && (
+        <ScrollytellingUI client:only="react" checkpoints={checkpoints} />
+      )}
+
+    </div><!-- /.fixed-layer -->
+
+    <!-- ── Noscript fallback ───────────────────────────────────────────────── -->
+    <!-- Shown ONLY when JavaScript is disabled. The fixed layer above is empty
+         in that case (client:only components don't render server-side). -->
     <noscript>
-      <div class="noscript-banner">
-        ⚠️ JavaScript dinonaktifkan. Aktifkan JS untuk peta interaktif dan animasi scroll.
-        Konten tetap bisa dibaca di bawah.
+      <div class="noscript-fallback">
+        <header class="noscript-header">
+          <h1 class="noscript-title">DDC</h1>
+          <p class="noscript-subtitle">Live Motorcycle Journal · JavaScript required for interactive map</p>
+        </header>
+
+        {checkpoints.length === 0 && (
+          <p style="color: var(--text-muted)">Belum ada checkpoint. Tambahkan via admin panel.</p>
+        )}
+
+        {checkpoints.map((cp) => (
+          <article class="ns-checkpoint">
+            <h2 class="ns-checkpoint-name">{cp.location_name}</h2>
+            {cp.description && <p class="ns-checkpoint-desc">{cp.description}</p>}
+            {cp.photos.length > 0 && (
+              <div class="ns-photos">
+                {cp.photos.map((photo) => (
+                  <img
+                    src={photo.photo_url}
+                    alt={photo.caption}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ))}
+              </div>
+            )}
+          </article>
+        ))}
       </div>
     </noscript>
 
-    <!-- ── Main layout: split panel ─────────────────────────────────── -->
-    <div class="journal-layout" id="journal-layout">
-
-      <!-- LEFT / TOP — Map panel -->
-      <aside class="map-panel" id="map-panel" aria-label="Peta perjalanan">
-        <!-- InteractiveMap island: client:only skips SSR (MapLibre needs WebGL) -->
-        <InteractiveMap
-          client:only="react"
-          checkpoints={mapCheckpoints}
-        />
-
-        <!-- Trip Facts overlay — static SSR HTML on top of the map -->
-        <div class="trip-facts">
-          <div class="trip-fact">
-            <span class="trip-fact-value">{checkpoints.length}</span>
-            <span class="trip-fact-label">checkpoint</span>
-          </div>
-          <div class="trip-fact-divider"></div>
-          <div class="trip-fact">
-            <span class="trip-fact-value">
-              {checkpoints.reduce((a, c) => a + c.photos.length, 0)}
-            </span>
-            <span class="trip-fact-label">foto</span>
-          </div>
-          <div class="trip-fact-divider"></div>
-          <div class="trip-fact">
-            <span class="trip-fact-value">{totalKm}+</span>
-            <span class="trip-fact-label">km</span>
-          </div>
-        </div>
-      </aside>
-
-      <!-- RIGHT / BOTTOM — Scrollable journal content -->
-      <main class="content-panel" id="content-panel">
-
-        <!-- Journal header -->
-        <header class="journal-header">
-          <div class="journal-eyebrow">
-            <span class="live-dot" aria-label="Live"></span>
-            <span>LIVE · {startTime}</span>
-          </div>
-          <h1 class="journal-title">DDC</h1>
-          <p class="journal-subtitle">Live Motorcycle Journal</p>
-          <p class="journal-route">Surabaya → <span class="route-dest">?</span></p>
-        </header>
-
-        <!-- Checkpoint sections -->
-        {checkpoints.length === 0 ? (
-          <div class="empty-state">
-            <p class="empty-icon">🏁</p>
-            <p class="empty-title">Perjalanan belum dimulai</p>
-            <p class="empty-body">Belum ada checkpoint. Tambahkan via admin panel.</p>
-          </div>
-        ) : (
-          <>
-            {/* ── Animated version (requires JS) ───────────────────────────── */}
-            <AnimatedCheckpointList client:only="react" checkpoints={checkpoints} />
-
-            {/* ── Static fallback (shown only when JS is disabled) ─────────── */}
-            <noscript>
-              <div class="checkpoints-list">
-                {checkpoints.map((cp, cpIdx) => (
-                  <section
-                    class="checkpoint-section"
-                    id={`checkpoint-${cp.id}-static`}
-                  >
-                    <div class="checkpoint-marker" aria-hidden="true">
-                      <div class={cpIdx === 0 ? 'marker-line-top invisible' : 'marker-line-top'}></div>
-                      <div class="marker-orb"><span class="marker-num">{cpIdx + 1}</span></div>
-                      <div class={cpIdx === checkpoints.length - 1 ? 'marker-line-bot dashed' : 'marker-line-bot'}></div>
-                    </div>
-                    <div class="checkpoint-content">
-                      <div class="checkpoint-header">
-                        <h2 class="checkpoint-name">{cp.location_name}</h2>
-                        <time class="checkpoint-time" datetime={cp.created_at}>
-                          {new Date(cp.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
-                        </time>
-                      </div>
-                      <div class="checkpoint-coords">
-                        <span>📍</span>
-                        <span class="coords-text">{cp.lat.toFixed(4)}, {cp.lng.toFixed(4)}</span>
-                      </div>
-                      {cp.description && <p class="checkpoint-desc">{cp.description}</p>}
-                      {cp.photos.length > 0 && (
-                        <div class="photo-stack">
-                          {cp.photos.map((photo, pi) => (
-                            <figure class="photo-card" style={`--rot: ${(pi % 2 === 0 ? 1 : -1) * (0.8 + pi * 1.2)}deg`}>
-                              <div class="photo-frame">
-                                <img src={photo.photo_url} alt={photo.caption} loading="lazy" decoding="async" class="photo-img" />
-                              </div>
-                              <figcaption class="photo-caption">{photo.caption}</figcaption>
-                            </figure>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </section>
-                ))}
-                <div class="journey-continues">
-                  <div class="continues-line"></div>
-                  <div class="continues-dot"></div>
-                  <p class="continues-label">perjalanan berlanjut...</p>
-                </div>
-              </div>
-            </noscript>
-          </>
-        )}
-
-        <!-- Footer -->
-        <footer class="journal-footer">
-          <p>DDC · {new Date().getFullYear()} · Local Dev</p>
-          <a href="/admin" class="admin-link">Admin ↗</a>
-        </footer>
-      </main>
-    </div>
-
-    <!-- ── Scroll Sync Engine ─────────────────────────────────────────── -->
-    <!-- Listens to content-panel scroll, fires ddc:scroll for map island -->
+    <!-- ── Scroll Sync Engine ─────────────────────────────────────────────── -->
+    <!-- Tracks window.scrollY, fires ddc:scroll{ progress: 0-1 } for islands -->
     <script>
       (function () {
-        const panel = document.getElementById('content-panel');
-        if (!panel) return;
-
         let ticking = false;
 
-        function dispatchProgress() {
-          // panel is guaranteed non-null here: the early-return above acts as a guard.
-          // TypeScript loses the narrowing across the closure boundary, so we assert.
-          const scrollable = panel!.scrollHeight - panel!.clientHeight;
+        function dispatch() {
+          const scrollable = document.documentElement.scrollHeight - window.innerHeight;
           if (scrollable <= 0) return;
-          const progress = Math.max(0, Math.min(1, panel!.scrollTop / scrollable));
+          const progress = Math.max(0, Math.min(1, window.scrollY / scrollable));
           window.dispatchEvent(
             new CustomEvent('ddc:scroll', { detail: { progress } })
           );
           ticking = false;
         }
 
-        panel.addEventListener('scroll', () => {
+        window.addEventListener('scroll', () => {
           if (!ticking) {
-            requestAnimationFrame(dispatchProgress);
+            requestAnimationFrame(dispatch);
             ticking = true;
           }
         }, { passive: true });
 
-        // Fire once on load so map starts at correct position
-        dispatchProgress();
-        // ── Wheel forwarding ─────────────────────────────────────────────
-        // When scroll wheel is used over the MAP panel, forward it to the
-        // CONTENT panel so the journal still scrolls normally.
-        const mapPanel = document.getElementById('map-panel');
-        if (mapPanel) {
-          mapPanel.addEventListener('wheel', (e) => {
-            e.preventDefault(); // stop map panel from trying to scroll
-            panel!.scrollBy({ top: e.deltaY, behavior: 'instant' });
-          }, { passive: false });
-        }
+        // Fire once on load so islands start in correct state
+        dispatch();
       })();
     </script>
+
   </body>
 </html>
