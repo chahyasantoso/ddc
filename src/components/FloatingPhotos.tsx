@@ -158,6 +158,8 @@ export function FloatingPhotos({ checkpoint, reveal }: Props) {
                       className="fp-img"
                       loading="lazy"
                       decoding="async"
+                      draggable={false}
+                      onDragStart={e => e.preventDefault()}
                       initial   ={{ opacity: 0 }}
                       animate   ={{ opacity: 1 }}
                       exit      ={{ opacity: 0 }}

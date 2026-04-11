@@ -291,6 +291,10 @@ body {
   object-fit: cover;
   display: block;
   transition: transform 0.4s ease;
+  /* Prevent native browser image drag (ghost cursor on desktop) */
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none; /* clicks passed to parent figure */
 }
 .ps-front:hover .fp-img {
   transform: scale(1.03);
