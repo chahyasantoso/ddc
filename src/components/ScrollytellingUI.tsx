@@ -24,45 +24,42 @@ interface Props {
 
 // ── Scroll-linked reveal calculation ──────────────────────────────────────────
 //
-//  For each checkpoint i, compute how "revealed" its photos are (0-1)
-//  based on current scroll progress.
+//  Reveal (0–1) is driven by the motor's position along the route:
 //
-//  Timeline for checkpoint i (N=3, segSize=0.5):
-//    - First:  always visible at progress=0, starts exiting after TRAIL
-//    - Middle: enters over LEAD range before cpProgress, exits over TRAIL after
-//    - Last:   starts entering LEAD before cpProgress=1, stays visible to end
+//  Slide IN  window: from when motor LEAVES prev checkpoint → ARRIVES here
+//  Slide OUT window: from when motor LEAVES here → ARRIVES at next checkpoint
+//
+//  i.e. photos are exactly FULLY IN when the motor reaches that checkpoint,
+//  and exactly FULLY OUT when the motor reaches the next/prev one.
 //
 function computeReveal(
-  p: number,      // current scroll progress 0–1
-  ci: number,     // checkpoint index
-  N: number       // total checkpoint count
+  p: number,   // current scroll progress 0–1
+  ci: number,  // checkpoint index
+  N: number    // total checkpoint count
 ): number {
   if (N === 1) return 1;
 
-  const segSize    = 1 / (N - 1);
-  const cpProgress = ci / (N - 1);
-  const LEAD       = 0.15 * segSize; // fraction of journey before arrival
-  const TRAIL      = 0.10 * segSize; // fraction of journey after departure
+  const cpProg   = ci / (N - 1);
+  const prevProg = (ci - 1) / (N - 1); // < 0 for ci=0, ignored via isFirst
+  const nextProg = (ci + 1) / (N - 1); // > 1 for last, ignored via isLast
 
   const isFirst = ci === 0;
   const isLast  = ci === N - 1;
 
-  const enterAt = isFirst ? 0     : cpProgress - LEAD;
-  const exitAt  = isLast  ? 1e9   : cpProgress + TRAIL;
+  // Before this checkpoint's entry window
+  if (!isFirst && p <= prevProg) return 0;
 
-  if (p < enterAt) return 0;                             // not yet
-
-  if (p < cpProgress) {                                  // approaching
-    if (isFirst) return 1;                               // first: always in from start
-    return (p - enterAt) / (cpProgress - enterAt);      // 0 → 1 linearly
+  // Entering: motor travelling from prev checkpoint toward this one
+  if (!isFirst && p < cpProg) {
+    return (p - prevProg) / (cpProg - prevProg); // 0 → 1
   }
 
-  if (p <= exitAt) {                                     // at / departing
-    if (isLast) return 1;                                // last: stay forever
-    return 1 - (p - cpProgress) / (exitAt - cpProgress); // 1 → 0 linearly
-  }
+  // At or past arrival at this checkpoint
+  if (isLast) return 1; // last checkpoint stays visible forever
 
-  return 0;                                              // past departure zone
+  // Exiting: motor travelling from this checkpoint toward the next one
+  if (p >= nextProg) return 0; // fully gone when motor arrives at next cp
+  return 1 - (p - cpProg) / (nextProg - cpProg); // 1 → 0
 }
 
 // ── Slide config per photo position ──────────────────────────────────────────
