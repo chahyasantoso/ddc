@@ -272,13 +272,16 @@ body {
   aspect-ratio: 4 / 3;
   overflow: hidden;
   background: var(--surface);
+  position: relative; /* needed for absolutely-positioned cross-fading img */
 }
 .fp-img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.4s ease;
   display: block;
+  transition: transform 0.4s ease;
 }
 .ps-front:hover .fp-img {
   transform: scale(1.04);
