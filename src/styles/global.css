@@ -185,48 +185,44 @@ body {
     inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
-/* Mobile: two cards side by side at the top of the zone */
+/* Mobile: two cards side by side at the top of the zone
+   NOTE: rotation is handled by Framer Motion, not CSS transform */
 .float-photo-0 {
   top: 12px;
   left: 5%;
   width: 44%;
-  transform: rotate(-1.5deg);
 }
 .float-photo-1 {
   top: 12px;
   right: 5%;
   width: 44%;
-  transform: rotate(1.8deg);
 }
 .float-photo-2 {
-  display: none;  /* hidden on mobile — 2 cards is enough */
+  display: none;  /* hidden on mobile — 2 cards sufficient */
 }
 .float-photo-3 {
   display: none;
 }
 
-/* Desktop overrides: 3 cards staggered */
+/* Desktop overrides: 3 cards staggered (rotation via Framer Motion) */
 @media (min-width: 768px) {
   .float-photo-0 {
     top: 8%;
-    left: 6%;
+    left: 5%;
     width: 54%;
-    transform: rotate(-1.8deg);
   }
   .float-photo-1 {
-    top: 34%;
+    top: 36%;
     right: 4%;
     left: auto;
     width: 50%;
-    transform: rotate(1.5deg);
   }
   .float-photo-2 {
     display: block;
-    bottom: 8%;
+    bottom: 9%;
     top: auto;
-    left: 10%;
+    left: 8%;
     width: 52%;
-    transform: rotate(-1deg);
   }
   .float-photo-3 {
     display: none;
