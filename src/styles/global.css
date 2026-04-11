@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+/* Adventure theme base */
+:root {
+  --color-bg: #0c0a09;
+  --color-surface: #1c1917;
+  --color-accent: #f59e0b;
+  --color-accent-dim: #92400e;
+  --color-text: #fef3c7;
+  --color-muted: #78716c;
+  color-scheme: dark;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Courier New', Courier, monospace;
+  margin: 0;
+}
