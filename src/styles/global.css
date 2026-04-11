@@ -167,12 +167,10 @@ body {
 
 
 /* ── Photo Stack wrapper ─────────────────────────────────────────────────────
-   Positioned by Framer Motion (ScrollSlide). This is the entry point
-   for the entire card deck. position:absolute anchors it in the zone.       */
+   position:absolute anchors it within the floating-photos-zone.             */
 
 .photo-stack-wrapper {
   position: absolute;
-  /* Mobile default: full width of the bottom zone */
   top: 8%;
   left: 5%;
   right: 5%;
@@ -188,14 +186,32 @@ body {
 }
 
 /* ── Card deck container ─────────────────────────────────────────────────── */
-/* position:relative so peeking cards (position:absolute) are layered here   */
 .ps-deck {
-  position: relative;
+  position: relative; /* contains absolute ps-slots */
+}
+
+/* Invisible height-setter — all real cards are position:absolute so they
+   don't contribute to layout height. This placeholder provides the height
+   via aspect-ratio matching the photo cards.                                 */
+.ps-deck-sizer {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ── Animated slot wrapper (one per stack layer) ─────────────────────────── */
+/* The outer motion.div that Framer Motion animates for scroll slide-in/out.  */
+.ps-slot {
+  position: absolute;
+  inset: 0;
 }
 
 /* ── Base card styles (shared by front + peek) ───────────────────────────── */
 .ps-card {
   width: 100%;
+  height: 100%;    /* fills ps-slot which fills ps-deck */
+  position: relative; /* for ps-front-footer absolute positioning */
   background: var(--surface-2);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 6px;
@@ -206,44 +222,37 @@ body {
     inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
-/* ── Peek cards (behind the front card) ──────────────────────────────────── */
-/* Absolutely positioned so they don't affect layout — front card drives height */
+/* ── Front card ──────────────────────────────────────────────────────────── */
+.ps-front {
+  cursor: grab;
+  /* touch-action set inline by Framer Motion's drag */
+}
+.ps-front:active {
+  cursor: grabbing;
+}
+
+/* ── Peek cards ──────────────────────────────────────────────────────────── */
 .ps-peek {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
   cursor: pointer;
-  opacity: 0.75;
+  opacity: 0.82;
   transition: opacity 0.2s ease;
 }
 .ps-peek:hover {
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
-/* ── Front card (active photo) ───────────────────────────────────────────── */
-.ps-front {
-  position: relative; /* drives ps-deck height */
-  cursor: default;
-}
-
-/* Caption + counter bar at bottom of front card */
+/* ── Caption + counter overlay on front card ─────────────────────────────── */
 .ps-front-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   padding: 8px 12px 10px;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    rgba(0,0,0,0.55)
-  );
-  /* Overlay on top of the image */
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.6));
 }
 
 .ps-caption {
@@ -260,19 +269,19 @@ body {
 
 .ps-counter {
   font-size: 0.65rem;
-  color: rgba(255,255,255,0.55);
+  color: rgba(255,255,255,0.5);
   font-family: var(--font-mono);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-/* Photo inside any card */
+/* ── Photo frame & image ─────────────────────────────────────────────────── */
 .fp-frame {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  height: 100%; /* fills card height (set by ps-deck-sizer aspect-ratio) */
   overflow: hidden;
   background: var(--surface);
-  position: relative; /* needed for absolutely-positioned cross-fading img */
+  position: relative; /* for absolute-positioned cross-fading img */
 }
 .fp-img {
   position: absolute;
@@ -284,8 +293,9 @@ body {
   transition: transform 0.4s ease;
 }
 .ps-front:hover .fp-img {
-  transform: scale(1.04);
+  transform: scale(1.03);
 }
+
 
 /* ── Navigation row ──────────────────────────────────────────────────────── */
 .ps-nav {
@@ -296,7 +306,9 @@ body {
   gap: 8px;
 }
 
+/* Prev/Next buttons — hidden on mobile (swipe replaces them) */
 .ps-nav-btn {
+  display: none; /* mobile: hidden */
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.16);
   color: var(--text-base);
@@ -306,7 +318,6 @@ body {
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
-  display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
@@ -315,6 +326,13 @@ body {
 .ps-nav-btn:hover {
   background: rgba(255,255,255,0.18);
   transform: scale(1.08);
+}
+
+/* Show buttons on desktop */
+@media (min-width: 768px) {
+  .ps-nav-btn {
+    display: flex;
+  }
 }
 
 /* Dot indicators */
