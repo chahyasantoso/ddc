@@ -165,10 +165,11 @@ body {
   }
 }
 
+
 /* ── Individual floating photo cards ─────────────────────────────────────── */
-/* Each card is absolutely positioned within the zone.
-   Framer Motion handles x/y transforms for slide in/out.
-   CSS handles position/size/rotation. */
+/* Visual appearance only — positioning (top/left/width etc.) is computed
+   dynamically by FloatingPhotos.tsx based on the checkpoint's photo count.
+   Framer Motion handles x/y/opacity/rotate transforms for animation. */
 
 .floating-photo-card {
   position: absolute;
@@ -185,49 +186,6 @@ body {
     inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
-/* Mobile: two cards side by side at the top of the zone
-   NOTE: rotation is handled by Framer Motion, not CSS transform */
-.float-photo-0 {
-  top: 12px;
-  left: 5%;
-  width: 44%;
-}
-.float-photo-1 {
-  top: 12px;
-  right: 5%;
-  width: 44%;
-}
-.float-photo-2 {
-  display: none;  /* hidden on mobile — 2 cards sufficient */
-}
-.float-photo-3 {
-  display: none;
-}
-
-/* Desktop overrides: 3 cards staggered (rotation via Framer Motion) */
-@media (min-width: 768px) {
-  .float-photo-0 {
-    top: 8%;
-    left: 5%;
-    width: 54%;
-  }
-  .float-photo-1 {
-    top: 36%;
-    right: 4%;
-    left: auto;
-    width: 50%;
-  }
-  .float-photo-2 {
-    display: block;
-    bottom: 9%;
-    top: auto;
-    left: 8%;
-    width: 52%;
-  }
-  .float-photo-3 {
-    display: none;
-  }
-}
 
 /* Photo image inside card */
 .fp-frame {
