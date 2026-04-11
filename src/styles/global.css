@@ -207,6 +207,14 @@ body {
   inset: 0;
 }
 
+/* ── Carousel slide wrapper (front card only) ────────────────────────────── */
+/* Middle layer — handles directional enter/exit animation (±340px).
+   overflow:visible so the card can fly outside slot bounds during transit.   */
+.ps-carousel-slide {
+  position: absolute;
+  inset: 0;
+}
+
 /* ── Base card styles (shared by front + peek) ───────────────────────────── */
 .ps-card {
   width: 100%;
