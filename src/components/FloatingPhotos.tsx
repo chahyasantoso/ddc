@@ -131,7 +131,7 @@ export function FloatingPhotos({ checkpoint, reveal, index }: Props) {
               baseOpacity={dp.baseOpacity}
               // Layout
               className={`ps-card${isTop ? ' ps-top' : ''}`}
-              style={{ zIndex: dp.zIndex }}
+              zIndex={dp.zIndex}
               transition={DECK_SPRING}
             >
               {isTop ? (

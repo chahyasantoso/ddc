@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useScroll, useMotionValueEvent } from 'framer-motion';
+import { useScroll, useMotionValueEvent, useSpring, type MotionValue } from 'framer-motion';
 import Map, { Source, Layer, Marker, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { SCROLL_CONFIG, getTotalVH, getCheckpointCenter } from '../lib/scrollUtils';
@@ -13,6 +13,7 @@ interface CheckpointCoord {
 }
 interface InteractiveMapProps {
   checkpoints: CheckpointCoord[];
+  scrollProgress?: MotionValue<number>;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -135,7 +136,7 @@ function useCameraPadding(): Padding {
 const ZOOM = 7.5;
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function InteractiveMap({ checkpoints }: InteractiveMapProps) {
+export function InteractiveMap({ checkpoints, scrollProgress }: InteractiveMapProps) {
   const mapRef     = useRef<MapRef>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const cameraPad  = useCameraPadding();
@@ -155,9 +156,15 @@ export function InteractiveMap({ checkpoints }: InteractiveMapProps) {
   const [motoPos, setMotoPos] = useState({ lat: init.lat, lng: init.lng, bearing: 0 });
   const [activeId, setActiveId] = useState<number>(checkpoints[0]?.id ?? -1);
 
-  const { scrollYProgress } = useScroll(); // Automatically tracks global window layout scroll depth
+  const fallbackScroll = useScroll(); // Automatically tracks global window layout scroll depth
+  const scrollYProgress = scrollProgress || fallbackScroll.scrollYProgress;
+  const smoothProgress = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 40,
+    restDelta: 0.001
+  });
 
-  useMotionValueEvent(scrollYProgress, "change", (progress) => {
+  useMotionValueEvent(smoothProgress, "change", (progress) => {
     if (checkpoints.length < 2) return;
     const pos     = getCameraFromProgress(checkpoints, progress);
     const bearing = getMotoBearing(checkpoints, progress);

@@ -1,8 +1,9 @@
 ---
 import { getDb } from '../lib/db';
 import type { CheckpointWithPhotos } from '../lib/db';
-import { InteractiveMap } from '../components/InteractiveMap';
 import { ScrollytellingUI } from '../components/ScrollytellingUI';
+import { HeroSection } from '../components/HeroSection';
+import { FooterSection } from '../components/FooterSection';
 import '../styles/global.css';
 
 // Slim coord type for the map island (no photos = smaller JSON payload)
@@ -50,11 +51,7 @@ const mapCheckpoints: MapCheckpoint[] = checkpoints.map(
   </head>
 
   <body>
-    <!-- ── Fixed Map layer ─────────────────────────────────────────────────── -->
-    <div class="fixed-layer map-only" style="position: fixed; inset: 0; z-index: 1;">
-      <!-- Full-screen map (WebGL) -->
-      <InteractiveMap client:only="react" checkpoints={mapCheckpoints} />
-    </div>
+    <HeroSection client:load />
 
     <!-- HUD: top bar with branding -->
     <div class="hud-bar" style="position: fixed; z-index: 10;">
@@ -69,9 +66,11 @@ const mapCheckpoints: MapCheckpoint[] = checkpoints.map(
     <!-- ── Native Scrollytelling Content ──────────────────────────────────── -->
     <div class="native-scrolly-container" style="position: relative; z-index: 5;">
       {checkpoints.length > 0 && (
-        <ScrollytellingUI client:only="react" checkpoints={checkpoints} />
+        <ScrollytellingUI client:only="react" checkpoints={checkpoints} mapCheckpoints={mapCheckpoints} />
       )}
     </div><!-- /.native-scrolly-container -->
+
+    <FooterSection />
 
     <!-- ── Noscript fallback ───────────────────────────────────────────────── -->
     <!-- Shown ONLY when JavaScript is disabled. -->

@@ -29,6 +29,8 @@ interface ScrollSlideProps extends Omit<HTMLMotionProps<'div'>, 'animate'> {
   revealDx?  : number;
   /** Custom vertical   reveal displacement in px (overrides direction). */
   revealDy?  : number;
+  /** Initial scale when fully hidden (reveal=0). Defaults to 0.85 */
+  revealScaleStart?: number;
 
   // ── Deck resting position (where the card sits when reveal=1) ─────────────
   /** Horizontal offset from the deck origin when fully revealed. */
@@ -41,6 +43,8 @@ interface ScrollSlideProps extends Omit<HTMLMotionProps<'div'>, 'animate'> {
   baseScale? : number;
   /** Opacity when fully revealed. Defaults to 1. */
   baseOpacity?: number;
+  /** Z-index of the slide deck wrapper. Defaults to 0. */
+  zIndex?    : number;
 
   children   : ReactNode;
 }
@@ -71,11 +75,13 @@ export function ScrollSlide({
   direction,
   revealDx,
   revealDy,
+  revealScaleStart = 0.85,
   baseX      = 0,
   baseY      = 0,
   baseRotate = 0,
   baseScale  = 1,
   baseOpacity = 1,
+  zIndex     = 0,
   children,
   ...rest
 }: ScrollSlideProps) {
@@ -86,27 +92,42 @@ export function ScrollSlide({
   const dx = revealDx ?? preset.x;
   const dy = revealDy ?? preset.y;
 
+  // Interpolate scale dynamically based on the reveal interpolation
+  const revealScale = revealScaleStart + (1 - revealScaleStart) * reveal;
+
   return (
-    <motion.div
-      // Allow caller to override spring via transition prop
-      transition={DEFAULT_SPRING}
-      {...rest}
-      initial={{
-        x      : baseX + dx,
-        y      : baseY + dy,
-        rotate : baseRotate,
-        scale  : baseScale,
-        opacity: 0,
-      }}
-      animate={{
-        x      : baseX + dx * t,
-        y      : baseY + dy * t,
-        rotate : baseRotate,
-        scale  : baseScale,
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex,
+        transform: `translate(${dx * t}px, ${dy * t}px) scale(${revealScale})`,
         opacity: reveal * baseOpacity,
+        visibility: reveal > 0 ? 'visible' : 'hidden',
+        willChange: 'transform, opacity',
       }}
     >
-      {children}
-    </motion.div>
+      <motion.div
+        // Allow caller to override spring via transition prop
+        {...rest}
+        transition={rest.transition || DEFAULT_SPRING}
+        className={rest.className}
+        style={rest.style}
+        initial={{
+          x      : baseX,
+          y      : baseY,
+          rotate : baseRotate,
+          scale  : baseScale,
+        }}
+        animate={{
+          x      : baseX,
+          y      : baseY,
+          rotate : baseRotate,
+          scale  : baseScale,
+        }}
+      >
+        {children}
+      </motion.div>
+    </div>
   );
 }
