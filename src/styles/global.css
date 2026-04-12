@@ -436,6 +436,7 @@ body::before {
 
 .checkpoint-info-zone {
   position: absolute;
+  /* Mobile: Just above the photo deck (which is bottom: 15vh, height: 50%) */
   top: 0;
   left: 0;
   right: 0;
@@ -444,12 +445,15 @@ body::before {
   align-items: flex-start;
   pointer-events: none;
   padding: 0 16px;
+  z-index: 60;
 }
 
 @media (min-width: 768px) {
   .checkpoint-info-zone {
-    top: 18%;
-    right: 50%;
+    /* Desktop: Overlapping the top-left of the photo deck (right: 50%) */
+    top: 15%;
+    right: 48%;
+    /* Pulls it slightly more onto the map for that 'mundur' look */
     left: auto;
     width: 420px;
     margin-top: 10px;
