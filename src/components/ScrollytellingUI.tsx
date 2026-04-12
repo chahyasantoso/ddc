@@ -1,10 +1,10 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { useScroll, useSpring, useTransform, motion, type MotionValue, useMotionValueEvent } from 'framer-motion';
 import { FloatingPhotos } from './FloatingPhotos';
 import { CheckpointInfoCard } from './CheckpointInfoCard';
 import { InteractiveMap } from './InteractiveMap';
 import type { Checkpoint } from '../lib/types.client';
-import { SCROLL_CONFIG, getTotalVH, getCheckpointCenter } from '../lib/scrollUtils';
+import { SCROLL_CONFIG, getTotalVH, getCheckpointCenter, useJumpableSpring, triggerScrollyJump } from '../lib/scrollUtils';
 
 interface Props {
   checkpoints: Checkpoint[];
@@ -34,15 +34,21 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
     offset: ["start end", "start start"]
   });
 
-  // Map scales up from 75% to 100% and border disappears when it reaches the top
-  const mapScale = useTransform(entryProgress, [0, 1], [0.75, 1]);
-  const mapBorderRadius = useTransform(entryProgress, [0, 1], ["40px", "0px"]);
-
-  const smoothProgress = useSpring(scrollYProgress, {
+  const smoothProgress = useJumpableSpring(scrollYProgress, {
     stiffness: 100,
     damping: 40,
     restDelta: 0.001
   });
+
+  const smoothEntryProgress = useJumpableSpring(entryProgress, {
+    stiffness: 100,
+    damping: 40,
+    restDelta: 0.001
+  });
+
+  // Map scales up from 75% to 100% and border disappears when it reaches the top
+  const mapScale = useTransform(smoothEntryProgress, [0, 1], [0.75, 1]);
+  const mapBorderRadius = useTransform(smoothEntryProgress, [0, 1], ["40px", "0px"]);
 
   // Native motion value streams (no React state re-renders)
   const totalVH = checkpoints.length > 0 ? getTotalVH(checkpoints.length) : 0;
@@ -59,6 +65,13 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
     );
   });
 
+  const handleJump = useCallback((targetIdx: number) => {
+    const currentVh = smoothVH.get();
+    const currentIdx = Math.round(currentVh / SCROLL_CONFIG.VH_PER_CHECKPOINT);
+    const isSequential = Math.abs(currentIdx - targetIdx) <= 1;
+    triggerScrollyJump(targetIdx, isSequential);
+  }, [smoothVH]);
+
   return (
     <div 
       ref={containerRef} 
@@ -70,6 +83,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
       {checkpoints.map((cp, i) => (
         <div
           key={`snap-${cp.id}`}
+          id={`checkpoint-snap-${i}`}
           style={{
             position: 'absolute',
             top: `${getCheckpointCenter(i)}vh`,
@@ -87,8 +101,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
           position: 'sticky', 
           top: 0, 
           height: '100vh', 
-          width: '100vw',
-          overflow: 'hidden'
+          width: '100vw'
         }}
       >
         
@@ -105,7 +118,13 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
               backgroundColor: '#0f0e0d' // Prevents flashing white behind map
             }}
           >
-             <InteractiveMap checkpoints={mapCheckpoints} scrollProgress={scrollYProgress} />
+             <InteractiveMap 
+               checkpoints={mapCheckpoints} 
+               scrollProgress={scrollYProgress} 
+               onCheckpointClick={(idx) => {
+                 handleJump(idx);
+               }}
+             />
           </motion.div>
         )}
 
@@ -119,12 +138,51 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
               isLast={i === checkpoints.length - 1} 
               total={checkpoints.length} 
               smoothVH={smoothVH} 
-              entryProgress={entryProgress} 
+              entryProgress={smoothEntryProgress} 
             />
           ))}
         </div>
 
       </div>
+
+      {/* Floating Jump to Latest Checkpoint Button */}
+      <button
+        onClick={() => handleJump(checkpoints.length - 1)}
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 100,
+          background: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(8px)',
+          color: '#0f0e0d',
+          border: '1px solid rgba(0,0,0,0.1)',
+          padding: '12px 16px',
+          borderRadius: '50px',
+          fontWeight: 600,
+          fontSize: '14px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          transition: 'all 0.2s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        }}
+      >
+        <span>Latest Update</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <polyline points="19 12 12 19 5 12"></polyline>
+        </svg>
+      </button>
     </div>
   );
 }

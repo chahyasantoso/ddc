@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useScroll, useMotionValueEvent, useSpring, type MotionValue } from 'framer-motion';
 import Map, { Source, Layer, Marker, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { SCROLL_CONFIG, getTotalVH, getCheckpointCenter } from '../lib/scrollUtils';
+import { SCROLL_CONFIG, getTotalVH, getCheckpointCenter, useJumpableSpring } from '../lib/scrollUtils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface CheckpointCoord {
@@ -14,6 +14,7 @@ interface CheckpointCoord {
 interface InteractiveMapProps {
   checkpoints: CheckpointCoord[];
   scrollProgress?: MotionValue<number>;
+  onCheckpointClick?: (index: number) => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -136,7 +137,7 @@ function useCameraPadding(): Padding {
 const ZOOM = 7.5;
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function InteractiveMap({ checkpoints, scrollProgress }: InteractiveMapProps) {
+export function InteractiveMap({ checkpoints, scrollProgress, onCheckpointClick }: InteractiveMapProps) {
   const mapRef     = useRef<MapRef>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const cameraPad  = useCameraPadding();
@@ -158,7 +159,7 @@ export function InteractiveMap({ checkpoints, scrollProgress }: InteractiveMapPr
 
   const fallbackScroll = useScroll(); // Automatically tracks global window layout scroll depth
   const scrollYProgress = scrollProgress || fallbackScroll.scrollYProgress;
-  const smoothProgress = useSpring(scrollYProgress, {
+  const smoothProgress = useJumpableSpring(scrollYProgress, {
     stiffness: 100,
     damping: 40,
     restDelta: 0.001
@@ -207,7 +208,7 @@ export function InteractiveMap({ checkpoints, scrollProgress }: InteractiveMapPr
         doubleClickZoom={false}
         touchZoomRotate={false}
         keyboard={false}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', cursor: 'default' }}
       >
         {/* Route */}
         {routeGeoJSON && (
@@ -222,15 +223,42 @@ export function InteractiveMap({ checkpoints, scrollProgress }: InteractiveMapPr
           </Source>
         )}
 
-        {/* All checkpoint dots */}
-        <Source id="markers" type="geojson" data={markersGeoJSON}>
-          <Layer id="markers-glow" type="circle"
-            paint={{ 'circle-radius':14,'circle-color':'#f59e0b',
-              'circle-opacity':0.08,'circle-blur':1 }} />
-          <Layer id="markers-dot" type="circle"
-            paint={{ 'circle-radius':5,'circle-color':'#f59e0b',
-              'circle-stroke-color':'#1c1917','circle-stroke-width':1.5 }} />
-        </Source>
+        {/* All checkpoint dots — now using interactive Markers for clicking */}
+        {checkpoints.map((cp, i) => (
+          <Marker 
+            key={`cp-marker-${cp.id}`}
+            longitude={cp.lng} 
+            latitude={cp.lat} 
+            anchor="center"
+          >
+            <button
+              onClick={() => onCheckpointClick?.(i)}
+              className="map-checkpoint-dot"
+              title={cp.location_name}
+              style={{
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                pointerEvents: 'auto',
+                padding: 0,
+              }}
+            >
+              <div style={{
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                background: '#f59e0b',
+                border: '2px solid #1c1917',
+                boxShadow: '0 0 10px rgba(245, 158, 11, 0.4)',
+              }} />
+            </button>
+          </Marker>
+        ))}
 
         {/* Active checkpoint highlight ring */}
         {activeGeoJSON && (
