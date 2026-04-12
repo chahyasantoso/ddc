@@ -60,7 +60,7 @@ const REVEAL_DX = [  0, 280,   0, -280 ]; // top, right, bottom, left
 const REVEAL_DY = [-280,  0, 280,    0 ]; // top, right, bottom, left
 
 // ── Component ─────────────────────────────────────────────────────────────────
-interface Props { checkpoint: Checkpoint; reveal: number; }
+interface Props { checkpoint: Checkpoint; reveal: number; index: number; }
 
 /**
  * Rotating card-deck photo stack.
@@ -82,13 +82,17 @@ interface Props { checkpoint: Checkpoint; reveal: number; }
  *  Top card → springs to back; cards behind → spring forward. Pure position
  *  animation, no enter/exit, no AnimatePresence needed.
  */
-export function FloatingPhotos({ checkpoint, reveal }: Props) {
+export function FloatingPhotos({ checkpoint, reveal, index }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const dragX = useMotionValue(0);
 
   const photos = checkpoint.photos;
   const total  = photos.length;
   if (!total) return null;
+
+  // Offset the direction indices based on city index to avoid repeating the same 
+  // entry sequence (e.g., top, right, bottom...) for every city.
+  const getDirIdx = (slotIdx: number) => (slotIdx + index) % 4;
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   function next() { setActiveIdx(i => (i + 1) % total); dragX.set(0); }
@@ -110,14 +114,15 @@ export function FloatingPhotos({ checkpoint, reveal }: Props) {
 
           const isTop = offset === 0;
           const dp    = deckPosition(offset, total);
+          const dirIdx = getDirIdx(offset);
 
           return (
             <ScrollSlide
               key={`photo-${i}`}
               // Scroll-reveal: each card enters from a different direction
               reveal={reveal}
-              revealDx={REVEAL_DX[offset]}
-              revealDy={REVEAL_DY[offset]}
+              revealDx={REVEAL_DX[dirIdx]}
+              revealDy={REVEAL_DY[dirIdx]}
               // Deck resting position (springs when activeIdx changes)
               baseX={dp.baseX}
               baseY={dp.baseY}

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useScroll, useMotionValueEvent } from 'framer-motion';
 import Map, { Source, Layer, Marker, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { SCROLL_CONFIG, getTotalVH, getCheckpointCenter } from '../lib/scrollUtils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface CheckpointCoord {
@@ -24,12 +26,34 @@ function getCameraFromProgress(
 ): { lat: number; lng: number } {
   if (cps.length === 0) return { lat: -7.5, lng: 112.5 };
   if (cps.length === 1) return { lat: cps[0].lat, lng: cps[0].lng };
-  const segLen = 1 / (cps.length - 1);
-  const raw    = progress / segLen;
-  const seg    = Math.min(Math.floor(raw), cps.length - 2);
-  const t      = raw - seg;
-  return { lat: lerp(cps[seg].lat, cps[seg+1].lat, t),
-           lng: lerp(cps[seg].lng, cps[seg+1].lng, t) };
+  
+  const N = cps.length;
+  const totalVH = getTotalVH(N);
+  const y = progress * totalVH; 
+  
+  for (let k = 0; k < N - 1; k++) {
+    const center = getCheckpointCenter(k);
+    const driveStart = center + SCROLL_CONFIG.PARKED_TOLERANCE;
+    const driveEnd = getCheckpointCenter(k + 1) - SCROLL_CONFIG.PARKED_TOLERANCE;
+    
+    // If we haven't started driving to the NEXT checkpoint yet, we are parked at k
+    if (y < driveStart) {
+      return { lat: cps[k].lat, lng: cps[k].lng };
+    }
+    
+    // If driving between k and k+1
+    if (y >= driveStart && y <= driveEnd) {
+      const driveLength = driveEnd - driveStart;
+      const t = (y - driveStart) / driveLength;
+      return { 
+        lat: lerp(cps[k].lat, cps[k + 1].lat, t),
+        lng: lerp(cps[k].lng, cps[k + 1].lng, t) 
+      };
+    }
+  }
+  
+  // If we passed all drives or it's the end, stay parked at the last checkpoint
+  return { lat: cps[N-1].lat, lng: cps[N-1].lng };
 }
 
 function getBearing(a: CheckpointCoord, b: CheckpointCoord) {
@@ -39,9 +63,19 @@ function getBearing(a: CheckpointCoord, b: CheckpointCoord) {
 
 function getMotoBearing(cps: CheckpointCoord[], progress: number) {
   if (cps.length < 2) return 0;
-  const segSize = 1 / (cps.length - 1);
-  const seg     = Math.min(Math.floor(progress / segSize), cps.length - 2);
-  return getBearing(cps[seg], cps[seg + 1]);
+  
+  const N = cps.length;
+  const totalVH = getTotalVH(N);
+  const y = progress * totalVH;
+  
+  for (let k = 0; k < N - 1; k++) {
+    const driveEnd = getCheckpointCenter(k + 1) - SCROLL_CONFIG.PARKED_TOLERANCE;
+    
+    if (y < driveEnd) {
+      return getBearing(cps[k], cps[k + 1]);
+    }
+  }
+  return getBearing(cps[N - 2], cps[N - 1]);
 }
 
 // ── Map style ─────────────────────────────────────────────────────────────────
@@ -98,7 +132,7 @@ function useCameraPadding(): Padding {
   return pad;
 }
 
-const ZOOM = 8.5;
+const ZOOM = 7.5;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function InteractiveMap({ checkpoints }: InteractiveMapProps) {
@@ -121,28 +155,26 @@ export function InteractiveMap({ checkpoints }: InteractiveMapProps) {
   const [motoPos, setMotoPos] = useState({ lat: init.lat, lng: init.lng, bearing: 0 });
   const [activeId, setActiveId] = useState<number>(checkpoints[0]?.id ?? -1);
 
-  // Scroll → camera + motorcycle movement
-  const handleScroll = useCallback((e: Event) => {
+  const { scrollYProgress } = useScroll(); // Automatically tracks global window layout scroll depth
+
+  useMotionValueEvent(scrollYProgress, "change", (progress) => {
     if (checkpoints.length < 2) return;
-    const { progress } = (e as CustomEvent<{ progress: number }>).detail;
     const pos     = getCameraFromProgress(checkpoints, progress);
     const bearing = getMotoBearing(checkpoints, progress);
     setViewState(prev => ({ ...prev, latitude: pos.lat, longitude: pos.lng }));
     setMotoPos({ lat: pos.lat, lng: pos.lng, bearing });
-  }, [checkpoints]);
+  });
 
   const handleActive = useCallback((e: Event) => {
     setActiveId((e as CustomEvent<{ id: number }>).detail.id);
   }, []);
 
   useEffect(() => {
-    window.addEventListener('ddc:scroll', handleScroll);
     window.addEventListener('ddc:checkpoint-active', handleActive);
     return () => {
-      window.removeEventListener('ddc:scroll', handleScroll);
       window.removeEventListener('ddc:checkpoint-active', handleActive);
     };
-  }, [handleScroll, handleActive]);
+  }, [handleActive]);
 
   const routeGeoJSON     = buildRouteGeoJSON(checkpoints);
   const markersGeoJSON   = buildMarkersGeoJSON(checkpoints);

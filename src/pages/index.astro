@@ -29,9 +29,6 @@ const checkpoints: CheckpointWithPhotos[] = rawCheckpoints.map((cp) => ({
 const mapCheckpoints: MapCheckpoint[] = checkpoints.map(
   ({ id, location_name, lat, lng }) => ({ id, location_name, lat, lng })
 );
-
-// Ghost scroll height: each checkpoint gets 200vh of scroll real estate
-const ghostHeight = `${Math.max(checkpoints.length, 1) * 200}vh`;
 ---
 
 <html lang="id">
@@ -53,53 +50,36 @@ const ghostHeight = `${Math.max(checkpoints.length, 1) * 200}vh`;
   </head>
 
   <body>
-    <!-- ── Ghost scroll driver (transparent, drives window.scrollY) ──────── -->
-    <div class="scroll-ghost" style={`height: ${ghostHeight}; position: relative;`}>
-      {checkpoints.length > 1 && checkpoints.map((_, i) => (
-        <div 
-          style={`
-            position: absolute; 
-            top: calc(${i / (checkpoints.length - 1)} * (100% - 100vh)); 
-            left: 0; 
-            width: 100%; 
-            height: 10px; 
-            scroll-snap-align: start;
-            pointer-events: none;
-          `}
-        ></div>
-      ))}
+    <!-- ── Fixed Map layer ─────────────────────────────────────────────────── -->
+    <div class="fixed-layer map-only" style="position: fixed; inset: 0; z-index: 1;">
+      <!-- Full-screen map (WebGL) -->
+      <InteractiveMap client:only="react" checkpoints={mapCheckpoints} />
     </div>
 
-    <!-- ── Fixed UI layer ─────────────────────────────────────────────────── -->
-    <div class="fixed-layer">
+    <!-- HUD: top bar with branding -->
+    <div class="hud-bar" style="position: fixed; z-index: 10;">
+      <span class="hud-live-dot"></span>
+      <span class="hud-title">DDC</span>
+      <span class="hud-subtitle">Live Motorcycle Journal</span>
+    </div>
 
-      <!-- Full-screen map (WebGL) -->
-      <div class="map-fullscreen">
-        <InteractiveMap client:only="react" checkpoints={mapCheckpoints} />
-      </div>
+    <!-- Admin link -->
+    <a href="/admin" class="admin-link-fixed" style="z-index: 10;">Admin ↗</a>
 
-      <!-- HUD: top bar with branding -->
-      <div class="hud-bar">
-        <span class="hud-live-dot"></span>
-        <span class="hud-title">DDC</span>
-        <span class="hud-subtitle">Live Motorcycle Journal</span>
-      </div>
-
-      <!-- Admin link -->
-      <a href="/admin" class="admin-link-fixed">Admin ↗</a>
-
-      <!-- Scrollytelling UI: floating photos + checkpoint info card -->
-      <!-- Only mounts when checkpoints exist -->
+    <!-- ── Native Scrollytelling Content ──────────────────────────────────── -->
+    <div class="native-scrolly-container" style="position: relative; z-index: 5;">
       {checkpoints.length > 0 && (
         <ScrollytellingUI client:only="react" checkpoints={checkpoints} />
       )}
-
-    </div><!-- /.fixed-layer -->
+    </div><!-- /.native-scrolly-container -->
 
     <!-- ── Noscript fallback ───────────────────────────────────────────────── -->
-    <!-- Shown ONLY when JavaScript is disabled. The fixed layer above is empty
-         in that case (client:only components don't render server-side). -->
+    <!-- Shown ONLY when JavaScript is disabled. -->
     <noscript>
+      <style>
+        /* Sembunyikan UI layout bawaan JS (map dan react container) */
+        .fixed-layer, .hud-bar, .native-scrolly-container { display: none !important; }
+      </style>
       <div class="noscript-fallback">
         <header class="noscript-header">
           <h1 class="noscript-title">DDC</h1>
@@ -130,34 +110,6 @@ const ghostHeight = `${Math.max(checkpoints.length, 1) * 200}vh`;
         ))}
       </div>
     </noscript>
-
-    <!-- ── Scroll Sync Engine ─────────────────────────────────────────────── -->
-    <!-- Tracks window.scrollY, fires ddc:scroll{ progress: 0-1 } for islands -->
-    <script>
-      (function () {
-        let ticking = false;
-
-        function dispatch() {
-          const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-          if (scrollable <= 0) return;
-          const progress = Math.max(0, Math.min(1, window.scrollY / scrollable));
-          window.dispatchEvent(
-            new CustomEvent('ddc:scroll', { detail: { progress } })
-          );
-          ticking = false;
-        }
-
-        window.addEventListener('scroll', () => {
-          if (!ticking) {
-            requestAnimationFrame(dispatch);
-            ticking = true;
-          }
-        }, { passive: true });
-
-        // Fire once on load so islands start in correct state
-        dispatch();
-      })();
-    </script>
 
   </body>
 </html>

@@ -91,6 +91,13 @@ export function ScrollSlide({
       // Allow caller to override spring via transition prop
       transition={DEFAULT_SPRING}
       {...rest}
+      initial={{
+        x      : baseX + dx,
+        y      : baseY + dy,
+        rotate : baseRotate,
+        scale  : baseScale,
+        opacity: 0,
+      }}
       animate={{
         x      : baseX + dx * t,
         y      : baseY + dy * t,
