@@ -13,7 +13,7 @@ export function HeroSection(): ReactElement {
         <span className="inline-block py-1 px-3 rounded-full bg-amber-500/10 text-amber-500 text-sm font-semibold tracking-wider uppercase border border-amber-500/20 mb-4 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
           Live Journey
         </span>
-        <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-tight">
+        <h1 className="text-5xl md:text-7xl lg:text-8xl font-black font-[family:var(--font-display)] tracking-tight leading-tight uppercase">
           Surabaya to <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">
             Bandung

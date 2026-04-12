@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, useMotionValue } from 'framer-motion';
+import { motion, useMotionValue, type MotionValue } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import type { Checkpoint } from '../lib/types.client';
 import { ScrollSlide } from './ScrollSlide';
@@ -60,7 +60,7 @@ const REVEAL_DX = [  0, 280,   0, -280 ]; // top, right, bottom, left
 const REVEAL_DY = [-280,  0, 280,    0 ]; // top, right, bottom, left
 
 // ── Component ─────────────────────────────────────────────────────────────────
-interface Props { checkpoint: Checkpoint; reveal: number; index: number; }
+interface Props { checkpoint: Checkpoint; reveal: MotionValue<number>; index: number; }
 
 /**
  * Rotating card-deck photo stack.

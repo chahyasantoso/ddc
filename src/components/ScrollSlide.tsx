@@ -1,4 +1,4 @@
-import { motion, type HTMLMotionProps } from 'framer-motion';
+import { motion, useMotionTemplate, useTransform, type HTMLMotionProps, type MotionValue } from 'framer-motion';
 import type { ReactNode } from 'react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -20,7 +20,7 @@ const DEFAULT_SPRING = { type: 'spring', stiffness: 280, damping: 32, mass: 0.6 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface ScrollSlideProps extends Omit<HTMLMotionProps<'div'>, 'animate'> {
   /** 0 = fully off-screen, 1 = fully on-screen */
-  reveal     : number;
+  reveal     : MotionValue<number>;
 
   // ── Reveal displacement (how/where the card enters from) ──────────────────
   /** Slide from this cardinal direction (uses large preset offsets). */
@@ -85,34 +85,42 @@ export function ScrollSlide({
   children,
   ...rest
 }: ScrollSlideProps) {
-  const t = 1 - reveal; // 0 = visible at rest, 1 = fully displaced
+  // Map reveal to a 't' inverse progress (0 = visible at rest, 1 = fully displaced)
+  const t = useTransform(reveal, r => 1 - r);
 
   // Resolve reveal displacement: explicit dx/dy wins; fallback to direction preset
   const preset = direction ? DIRECTION_OFFSETS[direction] : { x: 0, y: 0 };
   const dx = revealDx ?? preset.x;
   const dy = revealDy ?? preset.y;
 
-  // Interpolate scale dynamically based on the reveal interpolation
-  const revealScale = revealScaleStart + (1 - revealScaleStart) * reveal;
+  // Interpolate directly on the MotionValue
+  const translateX = useTransform(t, tVal => dx * tVal);
+  const translateY = useTransform(t, tVal => dy * tVal);
+  const scale = useTransform(reveal, r => revealScaleStart + (1 - revealScaleStart) * r);
+  const opacity = useTransform(reveal, r => Math.max(0, r * baseOpacity)); // Ensure opacity drops to exactly 0 to allow visibility to hide
+  
+  // Transform string constructed entirely outside React render loop
+  const transform = useMotionTemplate`translate(${translateX}px, ${translateY}px) scale(${scale})`;
 
   return (
-    <div
+    <motion.div
       style={{
         position: 'absolute',
         inset: 0,
         zIndex,
-        transform: `translate(${dx * t}px, ${dy * t}px) scale(${revealScale})`,
-        opacity: reveal * baseOpacity,
-        visibility: reveal > 0 ? 'visible' : 'hidden',
+        transform,
+        opacity,
         willChange: 'transform, opacity',
+        pointerEvents: 'none',
       }}
     >
       <motion.div
-        // Allow caller to override spring via transition prop
+        className="scroll-slide"
+        style={{
+          pointerEvents: useTransform(reveal, r => r > 0.1 ? 'auto' : 'none') as any,
+        }}
         {...rest}
         transition={rest.transition || DEFAULT_SPRING}
-        className={rest.className}
-        style={rest.style}
         initial={{
           x      : baseX,
           y      : baseY,
@@ -128,6 +136,6 @@ export function ScrollSlide({
       >
         {children}
       </motion.div>
-    </div>
+    </motion.div>
   );
 }
