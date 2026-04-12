@@ -130,59 +130,114 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
 
         {/* PHOTO DECKS & INFO CARDS ZONES */}
         <div className="floating-photos-zone">
-          {checkpoints.map((cp, i) => (
-            <CheckpointLayer 
-              key={cp.id} 
-              cp={cp} 
-              i={i} 
-              isLast={i === checkpoints.length - 1} 
-              total={checkpoints.length} 
-              smoothVH={smoothVH} 
-              entryProgress={smoothEntryProgress} 
-            />
-          ))}
+          {checkpoints.length > 0 ? (
+            checkpoints.map((cp, i) => (
+              <CheckpointLayer 
+                key={cp.id} 
+                cp={cp} 
+                i={i} 
+                isLast={i === checkpoints.length - 1} 
+                total={checkpoints.length} 
+                smoothVH={smoothVH} 
+                entryProgress={smoothEntryProgress} 
+              />
+            ))
+          ) : (
+            /* COMING SOON OVERLAY */
+            <div 
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 60,
+                background: 'rgba(15, 14, 13, 0.4)',
+                backdropFilter: 'blur(4px)',
+              }}
+            >
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                style={{ textAlign: 'center', color: '#fff' }}
+              >
+                <h2 style={{ 
+                  fontFamily: '"Oswald", sans-serif', 
+                  fontSize: 'clamp(3rem, 10vw, 6rem)', 
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  marginBottom: '1rem',
+                  background: 'linear-gradient(180deg, #fff 40%, rgba(255,255,255,0.4) 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}>
+                  Coming Soon
+                </h2>
+                <p style={{ 
+                  fontSize: '18px', 
+                  opacity: 0.8, 
+                  letterSpacing: '0.2em', 
+                  textTransform: 'uppercase',
+                  fontWeight: 500
+                }}>
+                  Preparing the next journey
+                </p>
+                <div style={{ 
+                  width: '60px', 
+                  height: '2px', 
+                  background: '#f59e0b', 
+                  margin: '2rem auto 0',
+                  boxShadow: '0 0 15px #f59e0b' 
+                }} />
+              </motion.div>
+            </div>
+          )}
         </div>
 
       </div>
 
       {/* Floating Jump to Latest Checkpoint Button */}
-      <button
-        onClick={() => handleJump(checkpoints.length - 1)}
-        style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          zIndex: 100,
-          background: 'rgba(255, 255, 255, 0.9)',
-          backdropFilter: 'blur(8px)',
-          color: '#0f0e0d',
-          border: '1px solid rgba(0,0,0,0.1)',
-          padding: '12px 16px',
-          borderRadius: '50px',
-          fontWeight: 600,
-          fontSize: '14px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          transition: 'all 0.2s ease',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-        }}
-      >
-        <span>Latest Update</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <polyline points="19 12 12 19 5 12"></polyline>
-        </svg>
-      </button>
+      {checkpoints.length > 0 && (
+        <button
+          onClick={() => handleJump(checkpoints.length - 1)}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 100,
+            background: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(8px)',
+            color: '#0f0e0d',
+            border: '1px solid rgba(0,0,0,0.1)',
+            padding: '12px 16px',
+            borderRadius: '50px',
+            fontWeight: 600,
+            fontSize: '14px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+          }}
+        >
+          <span>Latest Update</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <polyline points="19 12 12 19 5 12"></polyline>
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

@@ -1,20 +1,21 @@
 import type { APIRoute } from 'astro';
-import { getDb, type CheckpointWithPhotos } from '../../lib/db';
+import type { Checkpoint, CheckpointWithPhotos, Photo } from '../../lib/db';
+import { env } from 'cloudflare:workers';
 
 export const GET: APIRoute = async () => {
   try {
-    const db = getDb();
+    const db = env.DB;
 
-    const checkpoints = db
+    const { results: checkpoints } = await db
       .prepare(`SELECT * FROM checkpoints ORDER BY created_at ASC`)
-      .all() as CheckpointWithPhotos[];
+      .all<Checkpoint>();
 
-    const photos = db
+    const { results: photos } = await db
       .prepare(`SELECT * FROM photos ORDER BY checkpoint_id ASC, "order" ASC`)
-      .all() as { id: number; checkpoint_id: number; photo_url: string; caption: string; order: number; created_at: string }[];
+      .all<Photo>();
 
     // Group photos by checkpoint
-    const photoMap = new Map<number, typeof photos>();
+    const photoMap = new Map<number, Photo[]>();
     for (const photo of photos) {
       if (!photoMap.has(photo.checkpoint_id)) {
         photoMap.set(photo.checkpoint_id, []);
@@ -22,7 +23,7 @@ export const GET: APIRoute = async () => {
       photoMap.get(photo.checkpoint_id)!.push(photo);
     }
 
-    const result = checkpoints.map((cp) => ({
+    const result: CheckpointWithPhotos[] = checkpoints.map((cp) => ({
       ...cp,
       photos: photoMap.get(cp.id) ?? [],
     }));
@@ -42,7 +43,7 @@ export const GET: APIRoute = async () => {
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as any;
     const { location_name, lat, lng, description } = body;
 
     if (!location_name || lat == null || lng == null) {
@@ -52,16 +53,17 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    const db = getDb();
-    const result = db
+    const db = env.DB;
+    await db
       .prepare(
         `INSERT INTO checkpoints (location_name, lat, lng, description) VALUES (?, ?, ?, ?)`
       )
-      .run(location_name, lat, lng, description ?? null);
+      .bind(location_name, lat, lng, description ?? null)
+      .run();
 
-    const created = db
-      .prepare(`SELECT * FROM checkpoints WHERE id = ?`)
-      .get(result.lastInsertRowid);
+    const created = await db
+      .prepare(`SELECT * FROM checkpoints ORDER BY id DESC LIMIT 1`)
+      .first<Checkpoint>();
 
     return new Response(JSON.stringify(created), {
       status: 201,

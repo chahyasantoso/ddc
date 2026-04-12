@@ -1,11 +1,14 @@
 import type { APIRoute } from 'astro';
+import { env } from 'cloudflare:workers';
+
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const body = await request.json();
+    const body = await request.json() as any;
     const { password } = body;
 
-    const adminPassword = import.meta.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'ddc2024';
+    const runtimeEnv = (env as any);
+    const adminPassword = runtimeEnv.ADMIN_PASSWORD;
 
     if (password === adminPassword) {
       return new Response(JSON.stringify({ success: true, token: 'ddc-admin-local' }), {

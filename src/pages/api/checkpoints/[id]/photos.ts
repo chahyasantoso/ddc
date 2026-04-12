@@ -1,9 +1,8 @@
 import type { APIRoute } from 'astro';
-import { getDb } from '../../../../lib/db';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join, extname } from 'path';
-
-export const POST: APIRoute = async ({ request, params }) => {
+import type { Photo } from '../../../../lib/db';
+import { env } from 'cloudflare:workers';
+import { getStorageProvider } from '../../../../lib/storage';
+export const POST: APIRoute = async ({ request, params, locals }) => {
   try {
     const checkpointId = Number(params.id);
     if (isNaN(checkpointId)) {
@@ -13,10 +12,17 @@ export const POST: APIRoute = async ({ request, params }) => {
       });
     }
 
-    const db = getDb();
-    const checkpoint = db
+    const db = env.DB;
+    
+    // Fallback for local development if Cloudflare env variables aren't injected properly yet, though platformProxy handles this in dev.
+    if (!db) {
+      throw new Error("Database binding not found");
+    }
+
+    const checkpoint = await db
       .prepare(`SELECT id FROM checkpoints WHERE id = ?`)
-      .get(checkpointId);
+      .bind(checkpointId)
+      .first();
 
     if (!checkpoint) {
       return new Response(JSON.stringify({ error: 'Checkpoint not found' }), {
@@ -38,29 +44,19 @@ export const POST: APIRoute = async ({ request, params }) => {
       });
     }
 
-    // Save file to /public/uploads/
-    const uploadsDir = join(process.cwd(), 'public', 'uploads');
-    if (!existsSync(uploadsDir)) {
-      mkdirSync(uploadsDir, { recursive: true });
-    }
+    const storage = getStorageProvider(env);
+    const photoUrl = await storage.uploadPhoto(file, checkpointId.toString());
 
-    const ext = extname(file.name) || '.jpg';
-    const filename = `photo_${checkpointId}_${Date.now()}${ext}`;
-    const filepath = join(uploadsDir, filename);
-    const buffer = Buffer.from(await file.arrayBuffer());
-    writeFileSync(filepath, buffer);
-
-    const photoUrl = `/uploads/${filename}`;
-
-    const result = db
+    await db
       .prepare(
         `INSERT INTO photos (checkpoint_id, photo_url, caption, "order") VALUES (?, ?, ?, ?)`
       )
-      .run(checkpointId, photoUrl, caption, order);
+      .bind(checkpointId, photoUrl, caption, order)
+      .run();
 
-    const created = db
-      .prepare(`SELECT * FROM photos WHERE id = ?`)
-      .get(result.lastInsertRowid);
+    const created = await db
+      .prepare(`SELECT * FROM photos ORDER BY id DESC LIMIT 1`)
+      .first<Photo>();
 
     return new Response(JSON.stringify(created), {
       status: 201,

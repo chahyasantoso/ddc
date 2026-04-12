@@ -1,8 +1,7 @@
 import type { APIRoute } from 'astro';
-import { getDb } from '../../../lib/db';
-import { unlinkSync, existsSync } from 'fs';
-import { join } from 'path';
-
+import type { Photo } from '../../../lib/db';
+import { env } from 'cloudflare:workers';
+import { getStorageProvider } from '../../../lib/storage';
 export const DELETE: APIRoute = async ({ params }) => {
   try {
     const id = Number(params.id);
@@ -13,10 +12,11 @@ export const DELETE: APIRoute = async ({ params }) => {
       });
     }
 
-    const db = getDb();
-    const photo = db
+    const db = env.DB;
+    const photo = await db
       .prepare(`SELECT * FROM photos WHERE id = ?`)
-      .get(id) as { id: number; photo_url: string } | undefined;
+      .bind(id)
+      .first<Photo>();
 
     if (!photo) {
       return new Response(JSON.stringify({ error: 'Photo not found' }), {
@@ -25,15 +25,12 @@ export const DELETE: APIRoute = async ({ params }) => {
       });
     }
 
-    // Delete file from disk (skip seed placeholders)
     if (!photo.photo_url.includes('/seed/')) {
-      const filepath = join(process.cwd(), 'public', photo.photo_url);
-      if (existsSync(filepath)) {
-        unlinkSync(filepath);
-      }
+      const storage = getStorageProvider(env);
+      await storage.deletePhoto(photo.photo_url);
     }
 
-    db.prepare(`DELETE FROM photos WHERE id = ?`).run(id);
+    await db.prepare(`DELETE FROM photos WHERE id = ?`).bind(id).run();
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
@@ -58,11 +55,11 @@ export const PATCH: APIRoute = async ({ request, params }) => {
       });
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as any;
     const { order, caption } = body;
 
-    const db = getDb();
-    const photo = db.prepare(`SELECT id FROM photos WHERE id = ?`).get(id);
+    const db = env.DB;
+    const photo = await db.prepare(`SELECT id FROM photos WHERE id = ?`).bind(id).first();
     if (!photo) {
       return new Response(JSON.stringify({ error: 'Photo not found' }), {
         status: 404,
@@ -71,13 +68,13 @@ export const PATCH: APIRoute = async ({ request, params }) => {
     }
 
     if (order != null) {
-      db.prepare(`UPDATE photos SET "order" = ? WHERE id = ?`).run(order, id);
+      await db.prepare(`UPDATE photos SET "order" = ? WHERE id = ?`).bind(order, id).run();
     }
     if (caption != null) {
-      db.prepare(`UPDATE photos SET caption = ? WHERE id = ?`).run(caption, id);
+      await db.prepare(`UPDATE photos SET caption = ? WHERE id = ?`).bind(caption, id).run();
     }
 
-    const updated = db.prepare(`SELECT * FROM photos WHERE id = ?`).get(id);
+    const updated = await db.prepare(`SELECT * FROM photos WHERE id = ?`).bind(id).first<Photo>();
 
     return new Response(JSON.stringify(updated), {
       status: 200,

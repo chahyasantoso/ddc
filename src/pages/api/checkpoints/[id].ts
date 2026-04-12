@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { getDb } from '../../../lib/db';
+import type { Checkpoint } from '../../../lib/db';
+import { env } from 'cloudflare:workers';
 
 export const PATCH: APIRoute = async ({ request, params }) => {
   try {
@@ -11,11 +12,11 @@ export const PATCH: APIRoute = async ({ request, params }) => {
       });
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as any;
     const { location_name, lat, lng, description } = body;
 
-    const db = getDb();
-    const existing = db.prepare(`SELECT id FROM checkpoints WHERE id = ?`).get(id);
+    const db = env.DB;
+    const existing = await db.prepare(`SELECT id FROM checkpoints WHERE id = ?`).bind(id).first();
     if (!existing) {
       return new Response(JSON.stringify({ error: 'Checkpoint not found' }), {
         status: 404,
@@ -23,11 +24,11 @@ export const PATCH: APIRoute = async ({ request, params }) => {
       });
     }
 
-    db.prepare(
+    await db.prepare(
       `UPDATE checkpoints SET location_name = ?, lat = ?, lng = ?, description = ? WHERE id = ?`
-    ).run(location_name, lat, lng, description ?? null, id);
+    ).bind(location_name, lat, lng, description ?? null, id).run();
 
-    const updated = db.prepare(`SELECT * FROM checkpoints WHERE id = ?`).get(id);
+    const updated = await db.prepare(`SELECT * FROM checkpoints WHERE id = ?`).bind(id).first<Checkpoint>();
     return new Response(JSON.stringify(updated), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -51,8 +52,8 @@ export const DELETE: APIRoute = async ({ params }) => {
       });
     }
 
-    const db = getDb();
-    const existing = db.prepare(`SELECT id FROM checkpoints WHERE id = ?`).get(id);
+    const db = env.DB;
+    const existing = await db.prepare(`SELECT id FROM checkpoints WHERE id = ?`).bind(id).first();
     if (!existing) {
       return new Response(JSON.stringify({ error: 'Checkpoint not found' }), {
         status: 404,
@@ -61,7 +62,7 @@ export const DELETE: APIRoute = async ({ params }) => {
     }
 
     // Photos cascade deleted via FK
-    db.prepare(`DELETE FROM checkpoints WHERE id = ?`).run(id);
+    await db.prepare(`DELETE FROM checkpoints WHERE id = ?`).bind(id).run();
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

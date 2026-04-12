@@ -1,29 +1,29 @@
 ---
-import { getDb } from '../lib/db';
-import type { CheckpointWithPhotos } from '../lib/db';
+import type { CheckpointWithPhotos, Checkpoint, Photo } from '../lib/db';
 import { ScrollytellingUI } from '../components/ScrollytellingUI';
 import { HeroSection } from '../components/HeroSection';
 import { FooterSection } from '../components/FooterSection';
 import '../styles/global.css';
+import { env } from 'cloudflare:workers';
 
 // Slim coord type for the map island (no photos = smaller JSON payload)
 type MapCheckpoint = { id: number; location_name: string; lat: number; lng: number };
 
 // ── Server-side data fetch ────────────────────────────────────────────────
-const db = getDb();
+const db = env.DB;
 
-const rawCheckpoints = db
+const { results: rawCheckpoints } = await db
   .prepare(`SELECT * FROM checkpoints ORDER BY created_at ASC`)
-  .all() as import('../lib/db').Checkpoint[];
+  .all<Checkpoint>();
 
-const rawPhotos = db
+const { results: rawPhotos } = await db
   .prepare(`SELECT * FROM photos ORDER BY checkpoint_id ASC, "order" ASC`)
-  .all() as import('../lib/db').Photo[];
+  .all<Photo>();
 
 // Assemble CheckpointWithPhotos (full data for UI island)
-const checkpoints: CheckpointWithPhotos[] = rawCheckpoints.map((cp) => ({
+const checkpoints: CheckpointWithPhotos[] = rawCheckpoints.map((cp: Checkpoint) => ({
   ...cp,
-  photos: rawPhotos.filter((p) => p.checkpoint_id === cp.id),
+  photos: rawPhotos.filter((p: Photo) => p.checkpoint_id === cp.id),
 }));
 
 // Slim list for map island (smaller prop payload)
@@ -65,9 +65,7 @@ const mapCheckpoints: MapCheckpoint[] = checkpoints.map(
 
     <!-- ── Native Scrollytelling Content ──────────────────────────────────── -->
     <div class="native-scrolly-container" style="position: relative; z-index: 5;">
-      {checkpoints.length > 0 && (
-        <ScrollytellingUI client:only="react" checkpoints={checkpoints} mapCheckpoints={mapCheckpoints} />
-      )}
+      <ScrollytellingUI client:only="react" checkpoints={checkpoints} mapCheckpoints={mapCheckpoints} />
     </div><!-- /.native-scrolly-container -->
 
     <FooterSection />
