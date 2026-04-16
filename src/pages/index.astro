@@ -9,27 +9,39 @@ import { env } from 'cloudflare:workers';
 // Slim coord type for the map island (no photos = smaller JSON payload)
 type MapCheckpoint = { id: number; location_name: string; lat: number; lng: number };
 
+import { getDB } from '../lib/db-client';
+
 // ── Server-side data fetch ────────────────────────────────────────────────
-const db = env.DB;
+let checkpoints: CheckpointWithPhotos[] = [];
+let mapCheckpoints: MapCheckpoint[] = [];
 
-const { results: rawCheckpoints } = await db
-  .prepare(`SELECT * FROM checkpoints ORDER BY created_at ASC`)
-  .all<Checkpoint>();
+try {
+  const db = await getDB(env);
+  
+  const { results: rawCheckpoints } = await db
+    .prepare(`SELECT * FROM checkpoints ORDER BY created_at ASC`)
+    .all<Checkpoint>();
 
-const { results: rawPhotos } = await db
-  .prepare(`SELECT * FROM photos ORDER BY checkpoint_id ASC, "order" ASC`)
-  .all<Photo>();
+  const { results: rawPhotos } = await db
+    .prepare(`SELECT * FROM photos ORDER BY checkpoint_id ASC, "order" ASC`)
+    .all<Photo>();
 
-// Assemble CheckpointWithPhotos (full data for UI island)
-const checkpoints: CheckpointWithPhotos[] = rawCheckpoints.map((cp: Checkpoint) => ({
-  ...cp,
-  photos: rawPhotos.filter((p: Photo) => p.checkpoint_id === cp.id),
-}));
+  // Assemble CheckpointWithPhotos (full data for UI island)
+  checkpoints = rawCheckpoints.map((cp: Checkpoint) => ({
+    ...cp,
+    photos: rawPhotos.filter((p: Photo) => p.checkpoint_id === cp.id),
+  }));
 
-// Slim list for map island (smaller prop payload)
-const mapCheckpoints: MapCheckpoint[] = checkpoints.map(
-  ({ id, location_name, lat, lng }) => ({ id, location_name, lat, lng })
-);
+  // Slim list for map island (smaller prop payload)
+  mapCheckpoints = checkpoints.map(({ id, location_name, lat, lng }) => ({
+    id,
+    location_name,
+    lat,
+    lng,
+  }));
+} catch (e) {
+  console.error('Failed to load data from database:', e);
+}
 ---
 
 <html lang="id">

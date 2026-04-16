@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useScroll, useMotionValueEvent, useSpring, type MotionValue } from 'framer-motion';
 import Map, { Source, Layer, Marker, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { SCROLL_CONFIG, getTotalVH, getCheckpointCenter, useJumpableSpring } from '../lib/scrollUtils';
+import { useJumpableSpring, SCROLL_CONFIG } from '../lib/scrollUtils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface CheckpointCoord {
@@ -13,6 +13,8 @@ interface CheckpointCoord {
 }
 interface InteractiveMapProps {
   checkpoints: CheckpointCoord[];
+  /** Photo count per checkpoint — drives how long the camera parks at each stop. */
+  photoCounts?: number[];
   scrollProgress?: MotionValue<number>;
   onCheckpointClick?: (index: number) => void;
 }
@@ -22,62 +24,84 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * Math.max(0, Math.min(1, t));
 }
 
+// Map camera uses VH-aware math so the camera parks at each checkpoint
+// for the duration of ALL its photo slices, then pans to the next checkpoint
+// only during the next checkpoint's entry slice.
+const { SLICE_VH } = SCROLL_CONFIG;
+
+function getTotalVHFromCounts(n: number, photoCounts?: number[]) {
+  if (photoCounts && photoCounts.length === n) {
+    return photoCounts.reduce((s, pc) => s + (1 + pc) * SLICE_VH, 0);
+  }
+  // Fallback: assume 2 photos per checkpoint
+  return n * 3 * SLICE_VH;
+}
+
 function getCameraFromProgress(
   cps: CheckpointCoord[],
-  progress: number
+  photoCounts: number[] | undefined,
+  progress: number,
 ): { lat: number; lng: number } {
   if (cps.length === 0) return { lat: -7.5, lng: 112.5 };
   if (cps.length === 1) return { lat: cps[0].lat, lng: cps[0].lng };
-  
+
   const N = cps.length;
-  const totalVH = getTotalVH(N);
-  const y = progress * totalVH; 
-  
-  for (let k = 0; k < N - 1; k++) {
-    const center = getCheckpointCenter(k);
-    const driveStart = center + SCROLL_CONFIG.PARKED_TOLERANCE;
-    const driveEnd = getCheckpointCenter(k + 1) - SCROLL_CONFIG.PARKED_TOLERANCE;
-    
-    // If we haven't started driving to the NEXT checkpoint yet, we are parked at k
-    if (y < driveStart) {
-      return { lat: cps[k].lat, lng: cps[k].lng };
-    }
-    
-    // If driving between k and k+1
-    if (y >= driveStart && y <= driveEnd) {
-      const driveLength = driveEnd - driveStart;
-      const t = (y - driveStart) / driveLength;
-      return { 
-        lat: lerp(cps[k].lat, cps[k + 1].lat, t),
-        lng: lerp(cps[k].lng, cps[k + 1].lng, t) 
+  const totalVH = getTotalVHFromCounts(N, photoCounts);
+  const vh = progress * totalVH;
+
+  let startVH = 0;
+  for (let k = 0; k < N; k++) {
+    const pc = photoCounts?.[k] ?? 2;
+    const entryEnd = startVH + SLICE_VH;       // end of entry slice
+    const budgetEnd = startVH + (1 + pc) * SLICE_VH; // end of full checkpoint budget
+
+    if (vh < entryEnd) {
+      // In k's entry slice: travel from k-1 → k (or stay at 0 for first checkpoint)
+      if (k === 0) return { lat: cps[0].lat, lng: cps[0].lng };
+      const t = (vh - startVH) / SLICE_VH;
+      return {
+        lat: lerp(cps[k - 1].lat, cps[k].lat, t),
+        lng: lerp(cps[k - 1].lng, cps[k].lng, t),
       };
     }
+
+    if (vh < budgetEnd) {
+      // In k's photo slices: park at k
+      return { lat: cps[k].lat, lng: cps[k].lng };
+    }
+
+    startVH = budgetEnd;
   }
-  
-  // If we passed all drives or it's the end, stay parked at the last checkpoint
-  return { lat: cps[N-1].lat, lng: cps[N-1].lng };
+
+  return { lat: cps[N - 1].lat, lng: cps[N - 1].lng };
+}
+
+function getMotoBearing(
+  cps: CheckpointCoord[],
+  photoCounts: number[] | undefined,
+  progress: number,
+) {
+  if (cps.length < 2) return 0;
+  const N = cps.length;
+  const totalVH = getTotalVHFromCounts(N, photoCounts);
+  const vh = progress * totalVH;
+
+  let startVH = 0;
+  for (let k = 0; k < N - 1; k++) {
+    const pc = photoCounts?.[k] ?? 2;
+    const budgetEnd = startVH + (1 + pc) * SLICE_VH;
+    // Face next checkpoint from start of k's budget until end of k+1's entry slice
+    if (vh < budgetEnd + SLICE_VH) {
+      return getBearing(cps[k], cps[k + 1]);
+    }
+    startVH = budgetEnd;
+  }
+  return getBearing(cps[N - 2], cps[N - 1]);
 }
 
 function getBearing(a: CheckpointCoord, b: CheckpointCoord) {
   const angle = Math.atan2(b.lng - a.lng, b.lat - a.lat) * (180 / Math.PI);
   return (angle + 360) % 360;
-}
-
-function getMotoBearing(cps: CheckpointCoord[], progress: number) {
-  if (cps.length < 2) return 0;
-  
-  const N = cps.length;
-  const totalVH = getTotalVH(N);
-  const y = progress * totalVH;
-  
-  for (let k = 0; k < N - 1; k++) {
-    const driveEnd = getCheckpointCenter(k + 1) - SCROLL_CONFIG.PARKED_TOLERANCE;
-    
-    if (y < driveEnd) {
-      return getBearing(cps[k], cps[k + 1]);
-    }
-  }
-  return getBearing(cps[N - 2], cps[N - 1]);
 }
 
 // ── Map style ─────────────────────────────────────────────────────────────────
@@ -137,7 +161,7 @@ function useCameraPadding(): Padding {
 const ZOOM = 7.5;
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function InteractiveMap({ checkpoints, scrollProgress, onCheckpointClick }: InteractiveMapProps) {
+export function InteractiveMap({ checkpoints, photoCounts, scrollProgress, onCheckpointClick }: InteractiveMapProps) {
   const mapRef     = useRef<MapRef>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const cameraPad  = useCameraPadding();
@@ -167,8 +191,8 @@ export function InteractiveMap({ checkpoints, scrollProgress, onCheckpointClick 
 
   useMotionValueEvent(smoothProgress, "change", (progress) => {
     if (checkpoints.length < 2) return;
-    const pos     = getCameraFromProgress(checkpoints, progress);
-    const bearing = getMotoBearing(checkpoints, progress);
+    const pos     = getCameraFromProgress(checkpoints, photoCounts, progress);
+    const bearing = getMotoBearing(checkpoints, photoCounts, progress);
     setViewState(prev => ({ ...prev, latitude: pos.lat, longitude: pos.lng }));
     setMotoPos({ lat: pos.lat, lng: pos.lng, bearing });
   });

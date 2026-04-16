@@ -1,98 +1,174 @@
 /**
- * Shared scroll constants and math to ensure perfect synchronization 
- * between the Map Libre coordinates and the React Scrollytelling UI.
+ * Shared scroll constants and math to ensure perfect synchronization
+ * between the MapLibre coordinates and the React Scrollytelling UI.
+ *
+ * Scroll Budget Model
+ * ───────────────────
+ * Each checkpoint occupies a variable number of "slices":
+ *   • 1 entry slice  → map pans + marker appears
+ *   • N photo slices → one slice per photo; each photo slides in on its slice
+ *
+ * Total VH for checkpoint k = (1 + photos.length) × SLICE_VH
+ *
+ * Example — 3 checkpoints with [2, 3, 1] photos:
+ *   cp0: 3 slices → 0–300 vh
+ *   cp1: 4 slices → 300–700 vh
+ *   cp2: 2 slices → 700–900 vh
+ *   Total = 900 vh
  */
 import { useEffect, useRef } from 'react';
-import { useMotionValue, animate, type MotionValue } from 'framer-motion';
+import { useMotionValue, useSpring, type MotionValue } from 'framer-motion';
+
+// ── Tuning constants ──────────────────────────────────────────────────────────
 
 export const SCROLL_CONFIG = {
-  // Distance (in vh) between the exact center of each checkpoint
-  VH_PER_CHECKPOINT: 200,
+  /** Height of one scroll "slice" in viewport-height units. */
+  SLICE_VH: 100,
 
-  // Radius (in vh) around the center where the timeline is considered 'Parked'
-  // Both the photo and the map marker will not move dynamically while within this range.
-  PARKED_TOLERANCE: 20,
+  /**
+   * Radius (in vh) around the center of a photo slice where it is
+   * considered "fully revealed" (reveal = 1). Widening this makes
+   * photos easier to see without scrolling to the exact midpoint.
+   */
+  PARKED_TOLERANCE: 30,
 
-  // Distance (in vh) it takes for a photo deck to completely slide-in / slide-out
-  FADE_DURATION: 60,
+  /**
+   * Distance (in vh) over which a photo transitions from 0 → 1 reveal.
+   * Smaller = snappier; larger = more gradual parallax feel.
+   */
+  FADE_DURATION: 50,
 };
 
-/**
- * Total native scrollable height needed for the entire journey.
- * Map's progress multiplier and DOM container height scale off this exact value.
- */
-export function getTotalVH(numCheckpoints: number) {
-  return Math.max(0, (numCheckpoints - 1) * SCROLL_CONFIG.VH_PER_CHECKPOINT);
+// ── Checkpoint type (minimal shape needed by math helpers) ───────────────────
+
+export interface CheckpointLike {
+  photos: unknown[];
+}
+
+// ── Slice-count helpers ───────────────────────────────────────────────────────
+
+/** Number of scroll slices consumed by checkpoint k. */
+export function sliceCount(cp: CheckpointLike) {
+  return 1 + cp.photos.length;
+}
+
+/** Cumulative scroll offset (in vh) where checkpoint k begins. */
+export function getCheckpointStartVH(checkpoints: CheckpointLike[], idx: number): number {
+  let vh = 0;
+  for (let i = 0; i < idx; i++) {
+    vh += sliceCount(checkpoints[i]) * SCROLL_CONFIG.SLICE_VH;
+  }
+  return vh;
 }
 
 /**
- * Calculates the exact scroll VH where a checkpoint is perfectly centered.
+ * Total scrollable height (in vh) for the entire journey.
+ * Add extra 100vh padding so the last checkpoint can fully settle.
  */
-export function getCheckpointCenter(index: number) {
-  return index * SCROLL_CONFIG.VH_PER_CHECKPOINT;
+export function getTotalVH(checkpoints: CheckpointLike[]): number {
+  const sum = checkpoints.reduce((acc, cp) => acc + sliceCount(cp) * SCROLL_CONFIG.SLICE_VH, 0);
+  return Math.max(0, sum);
 }
 
 /**
- * Global jump dispatcher to bypass visual transitions temporarily.
- * Used when jumping to non-sequential checkpoints.
+ * The scroll VH at which checkpoint k's marker / entry is perfectly centered.
+ * Defined as the midpoint of the first (entry) slice.
  */
-export function triggerScrollyJump(targetIndex: number, isSequential: boolean) {
+export function getCheckpointCenter(checkpoints: CheckpointLike[], idx: number): number {
+  return getCheckpointStartVH(checkpoints, idx) + SCROLL_CONFIG.SLICE_VH * 0.5;
+}
+
+/**
+ * The scroll VH at the center of the reveal slice for photo `photoIdx`
+ * inside checkpoint `cpIdx`.
+ * photoIdx is 0-based (photo 0 = first photo slice, immediately after entry).
+ */
+export function getPhotoRevealVH(
+  checkpoints: CheckpointLike[],
+  cpIdx: number,
+  photoIdx: number,
+): number {
+  const start = getCheckpointStartVH(checkpoints, cpIdx);
+  // Entry slice occupies [start, start + SLICE_VH].
+  // Photo k occupies [(k+1)*SLICE_VH, (k+2)*SLICE_VH] relative to start.
+  return start + (photoIdx + 1) * SCROLL_CONFIG.SLICE_VH + SCROLL_CONFIG.SLICE_VH * 0.5;
+}
+
+/**
+ * Given a raw scroll-VH value, return the index of the checkpoint that
+ * is currently "active" (i.e. the marker should be visible on the map).
+ * A checkpoint stays active for its entire scroll budget.
+ */
+export function getActiveCheckpointIndex(
+  checkpoints: CheckpointLike[],
+  smoothVH: number,
+): number {
+  let idx = 0;
+  for (let i = 0; i < checkpoints.length; i++) {
+    const end = getCheckpointStartVH(checkpoints, i) + sliceCount(checkpoints[i]) * SCROLL_CONFIG.SLICE_VH;
+    if (smoothVH < end) {
+      idx = i;
+      break;
+    }
+    idx = i; // clamp to last
+  }
+  return idx;
+}
+
+// ── Jump navigation ───────────────────────────────────────────────────────────
+
+/**
+ * Scrolls to a target checkpoint, either smoothly (sequential) or via
+ * a pre-jump instant scroll to skip invisible sections (non-sequential).
+ */
+export function triggerScrollyJump(
+  checkpoints: CheckpointLike[],
+  targetIndex: number,
+  isSequential: boolean,
+) {
   const el = document.getElementById(`checkpoint-snap-${targetIndex}`);
   if (!el) return;
 
   if (isSequential) {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } else {
-    // Dispatch event to temporarily disable spring animations
     window.dispatchEvent(new CustomEvent('ddc:jump-state', { detail: { jumping: true } }));
-    
-    // Calculate the jump point (85vh before or after the target center)
-    // 20vh (parked) + 60vh (fade) = 80vh where opacity becomes 0. We add +5 for safe invisible margin.
+
+    const { PARKED_TOLERANCE, FADE_DURATION, SLICE_VH } = SCROLL_CONFIG;
     const vhPx = window.innerHeight / 100;
-    const preJumpOffsetVh = SCROLL_CONFIG.PARKED_TOLERANCE + SCROLL_CONFIG.FADE_DURATION + 5;
+    // Land just outside the fade zone so animations start from invisible
+    const preJumpOffsetVh = PARKED_TOLERANCE + FADE_DURATION + 5;
     const offsetPx = preJumpOffsetVh * vhPx;
-    
+
     const targetCenterY = el.getBoundingClientRect().top + window.scrollY;
-    
-    // Determine scroll direction: are we currently above or below the target?
     const isJumpingDown = targetCenterY > window.scrollY;
-    
-    // If we are jumping down, we want to arrive from ABOVE the target (targetCenterY - offset).
-    // If we are jumping up, we want to arrive from BELOW the target (targetCenterY + offset).
-    // This brilliantly prevents seeing the Hero section when jumping UP to the very first checkpoint (Surabaya)!
     const targetY = isJumpingDown ? targetCenterY - offsetPx : targetCenterY + offsetPx;
 
-    // Use instant scroll to leap over intermediate content to the pre-animation point
     window.scrollTo({ top: targetY, behavior: 'instant' });
-    
-    // Give native scroll and Framer motion projection a tiny window to settle
+
     requestAnimationFrame(() => {
       setTimeout(() => {
-        // Re-enable the animations
         window.dispatchEvent(new CustomEvent('ddc:jump-state', { detail: { jumping: false } }));
-        
-        // Immediately start the final approach using smooth scrolling!
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 50);
     });
   }
 }
 
-import { useSpring } from 'framer-motion';
+// ── Spring with jump bypass ───────────────────────────────────────────────────
 
 /**
  * Drop-in replacement for useSpring() that can be temporarily bypassed.
- * When a custom jump event fires, we instantly set the value instead of animating.
+ * When a 'ddc:jump-state' event fires, the spring is skipped so that
+ * instant-scroll jumps don't visibly animate through intermediate states.
  */
 export function useJumpableSpring(sourceValue: MotionValue<number>, config: any) {
   const targetValue = useMotionValue(sourceValue.get());
   const smoothValue = useSpring(targetValue, config);
-  // Start as true so that initial browser scroll restoration skips the spring animation
-  const isJumping = useRef(true); 
+  // Start as true so browser scroll restoration skips the initial spring
+  const isJumping = useRef(true);
 
-  // Listen for jump events and handle mount settling
   useEffect(() => {
-    // Disable jumping shortly after mount once scroll positions have settled
     const settleTimeout = setTimeout(() => {
       isJumping.current = false;
     }, 200);
@@ -104,28 +180,20 @@ export function useJumpableSpring(sourceValue: MotionValue<number>, config: any)
     return () => {
       clearTimeout(settleTimeout);
       window.removeEventListener('ddc:jump-state', handleJump);
-    }
+    };
   }, []);
 
-  // Sync logic
   useEffect(() => {
-    // Initial sync
     const initial = sourceValue.get();
     targetValue.set(initial);
-    if ((smoothValue as any).jump) {
-      (smoothValue as any).jump(initial);
-    }
+    if ((smoothValue as any).jump) (smoothValue as any).jump(initial);
 
-    const unsub = sourceValue.on("change", (latest) => {
-      targetValue.set(latest); // Always track
-      if (isJumping.current) {
-        // If we are jumping, forcefully bypass the spring animation!
-        if ((smoothValue as any).jump) {
-          (smoothValue as any).jump(latest);
-        }
+    const unsub = sourceValue.on('change', (latest) => {
+      targetValue.set(latest);
+      if (isJumping.current && (smoothValue as any).jump) {
+        (smoothValue as any).jump(latest);
       }
     });
-
     return unsub;
   }, [sourceValue, targetValue, smoothValue]);
 

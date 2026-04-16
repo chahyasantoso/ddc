@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import type { Checkpoint } from '../../../lib/db';
 import { env } from 'cloudflare:workers';
+import { getDB } from '../../../lib/db-client';
 
 export const PATCH: APIRoute = async ({ request, params }) => {
   try {
@@ -15,7 +16,7 @@ export const PATCH: APIRoute = async ({ request, params }) => {
     const body = (await request.json()) as any;
     const { location_name, lat, lng, description } = body;
 
-    const db = env.DB;
+    const db = await getDB(env);
     const existing = await db.prepare(`SELECT id FROM checkpoints WHERE id = ?`).bind(id).first();
     if (!existing) {
       return new Response(JSON.stringify({ error: 'Checkpoint not found' }), {
@@ -52,7 +53,7 @@ export const DELETE: APIRoute = async ({ params }) => {
       });
     }
 
-    const db = env.DB;
+    const db = await getDB(env);
     const existing = await db.prepare(`SELECT id FROM checkpoints WHERE id = ?`).bind(id).first();
     if (!existing) {
       return new Response(JSON.stringify({ error: 'Checkpoint not found' }), {

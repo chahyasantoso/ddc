@@ -1,10 +1,11 @@
 import type { APIRoute } from 'astro';
 import type { Checkpoint, CheckpointWithPhotos, Photo } from '../../lib/db';
 import { env } from 'cloudflare:workers';
+import { getDB } from '../../lib/db-client';
 
 export const GET: APIRoute = async () => {
   try {
-    const db = env.DB;
+    const db = await getDB(env);
 
     const { results: checkpoints } = await db
       .prepare(`SELECT * FROM checkpoints ORDER BY created_at ASC`)
@@ -53,7 +54,7 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    const db = env.DB;
+    const db = await getDB(env);
     await db
       .prepare(
         `INSERT INTO checkpoints (location_name, lat, lng, description) VALUES (?, ?, ?, ?)`

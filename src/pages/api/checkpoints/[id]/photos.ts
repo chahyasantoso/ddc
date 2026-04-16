@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import type { Photo } from '../../../../lib/db';
 import { env } from 'cloudflare:workers';
 import { getStorageProvider } from '../../../../lib/storage';
+import { getDB } from '../../../../lib/db-client';
+
 export const POST: APIRoute = async ({ request, params, locals }) => {
   try {
     const checkpointId = Number(params.id);
@@ -12,12 +14,7 @@ export const POST: APIRoute = async ({ request, params, locals }) => {
       });
     }
 
-    const db = env.DB;
-    
-    // Fallback for local development if Cloudflare env variables aren't injected properly yet, though platformProxy handles this in dev.
-    if (!db) {
-      throw new Error("Database binding not found");
-    }
+    const db = await getDB(env);
 
     const checkpoint = await db
       .prepare(`SELECT id FROM checkpoints WHERE id = ?`)
