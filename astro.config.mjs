@@ -22,7 +22,5 @@ export default defineConfig({
     }
   },
 
-  adapter: cloudflare({
-    platform: 'pages'
-  }),
+  adapter: cloudflare(),
 });

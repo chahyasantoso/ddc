@@ -5,7 +5,7 @@
 
 .site-footer {
   width: 100%;
-  background: #050505;
+  background: #064e3b; /* DEBUG GREEN */
   color: #71717a; /* zinc-500 */
   padding: 4rem 1.5rem;
   border-top: 1px solid rgba(39, 39, 42, 0.5); /* zinc-800/50 */

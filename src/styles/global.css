@@ -38,7 +38,6 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
-  scroll-snap-type: y proximity;
 }
 
 img {
@@ -56,10 +55,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  overflow-x: clip;
-  /* Using clip instead of hidden to retain position:sticky */
-  overflow-y: scroll;
-  /* page scrolls naturally */
+  /* No overflow-x here — it breaks position:sticky on mobile browsers */
   height: auto;
 }
 

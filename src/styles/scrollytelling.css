@@ -19,9 +19,19 @@
 .sticky-viewport {
   position: sticky;
   top: 0;
-  height: 100dvh;
-  min-height: 100vh;
-  width: 100vw;
+  height: 100vh;
+  /* fallback */
+  height: 100lvh;
+  /* large viewport height — stable, ignores URL bar transitions */
+  width: 100%;
+  overflow: hidden;
+  /* prevents Android URL bar resize from breaking sticky */
+}
+
+@media (min-width: 768px) {
+  .sticky-viewport {
+    overflow: visible;
+  }
 }
 
 .map-canvas-layer {

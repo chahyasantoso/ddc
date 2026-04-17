@@ -87,7 +87,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
     <div
       ref={containerRef}
       className="native-scrolly-container"
-      style={{ height: `${containerHeightVH}vh`, position: 'relative' }}
+      style={{ height: `${containerHeightVH}vh`, position: 'relative', zIndex: 5 }}
     >
 
       {/* INVISIBLE SNAP ANCHORS: Aligns browser scroll with the arrival of EACH photo! */}
@@ -131,7 +131,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
               borderRadius: mapBorderRadius,
               overflow: 'hidden',
               transformOrigin: 'center',
-              backgroundColor: '#0f0e0d',
+              backgroundColor: '#064e3b', // DEBUG GREEN
               pointerEvents: 'none',
             }}
           >
