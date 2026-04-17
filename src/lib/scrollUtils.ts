@@ -24,19 +24,6 @@ import { useMotionValue, useSpring, type MotionValue } from 'framer-motion';
 export const SCROLL_CONFIG = {
   /** Height of one scroll "slice" in viewport-height units. */
   SLICE_VH: 100,
-
-  /**
-   * Radius (in vh) around the center of a photo slice where it is
-   * considered "fully revealed" (reveal = 1). Widening this makes
-   * photos easier to see without scrolling to the exact midpoint.
-   */
-  PARKED_TOLERANCE: 30,
-
-  /**
-   * Distance (in vh) over which a photo transitions from 0 → 1 reveal.
-   * Smaller = snappier; larger = more gradual parallax feel.
-   */
-  FADE_DURATION: 50,
 };
 
 // ── Checkpoint type (minimal shape needed by math helpers) ───────────────────
@@ -49,7 +36,7 @@ export interface CheckpointLike {
 
 /** Number of scroll slices consumed by checkpoint k. */
 export function sliceCount(cp: CheckpointLike) {
-  return 1 + cp.photos.length;
+  return Math.max(1, cp.photos.length);
 }
 
 /** Cumulative scroll offset (in vh) where checkpoint k begins. */
@@ -132,25 +119,18 @@ export function triggerScrollyJump(
   if (isSequential) {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } else {
+    // Signal spring to bypass animation instantly
     window.dispatchEvent(new CustomEvent('ddc:jump-state', { detail: { jumping: true } }));
 
-    const { PARKED_TOLERANCE, FADE_DURATION, SLICE_VH } = SCROLL_CONFIG;
-    const vhPx = window.innerHeight / 100;
-    // Land just outside the fade zone so animations start from invisible
-    const preJumpOffsetVh = PARKED_TOLERANCE + FADE_DURATION + 5;
-    const offsetPx = preJumpOffsetVh * vhPx;
+    const targetAbsoluteY = el.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: targetAbsoluteY, behavior: 'instant' });
 
-    const targetCenterY = el.getBoundingClientRect().top + window.scrollY;
-    const isJumpingDown = targetCenterY > window.scrollY;
-    const targetY = isJumpingDown ? targetCenterY - offsetPx : targetCenterY + offsetPx;
-
-    window.scrollTo({ top: targetY, behavior: 'instant' });
-
+    // Use double-RAF: first frame lets the instant scroll event fire and update
+    // scrollYProgress, second frame releases the spring so it resumes normally.
     requestAnimationFrame(() => {
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         window.dispatchEvent(new CustomEvent('ddc:jump-state', { detail: { jumping: false } }));
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 50);
+      });
     });
   }
 }
@@ -190,8 +170,13 @@ export function useJumpableSpring(sourceValue: MotionValue<number>, config: any)
 
     const unsub = sourceValue.on('change', (latest) => {
       targetValue.set(latest);
-      if (isJumping.current && (smoothValue as any).jump) {
-        (smoothValue as any).jump(latest);
+      if (isJumping.current) {
+        // jump() is preferred (bypasses internal velocity), set() is a fallback
+        if ((smoothValue as any).jump) {
+          (smoothValue as any).jump(latest);
+        } else {
+          (smoothValue as any).set(latest);
+        }
       }
     });
     return unsub;

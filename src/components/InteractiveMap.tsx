@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useScroll, useMotionValueEvent, useSpring, type MotionValue } from 'framer-motion';
 import Map, { Source, Layer, Marker, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useJumpableSpring, SCROLL_CONFIG } from '../lib/scrollUtils';
+import { useJumpableSpring, SCROLL_CONFIG, getTotalVH, getActiveCheckpointIndex, getCheckpointStartVH } from '../lib/scrollUtils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface CheckpointCoord {
@@ -27,14 +27,10 @@ function lerp(a: number, b: number, t: number) {
 // Map camera uses VH-aware math so the camera parks at each checkpoint
 // for the duration of ALL its photo slices, then pans to the next checkpoint
 // only during the next checkpoint's entry slice.
-const { SLICE_VH } = SCROLL_CONFIG;
-
-function getTotalVHFromCounts(n: number, photoCounts?: number[]) {
-  if (photoCounts && photoCounts.length === n) {
-    return photoCounts.reduce((s, pc) => s + (1 + pc) * SLICE_VH, 0);
-  }
-  // Fallback: assume 2 photos per checkpoint
-  return n * 3 * SLICE_VH;
+function buildVirtualCheckpoints(cps: CheckpointCoord[], photoCounts?: number[]) {
+  return cps.map((cp, i) => ({
+    photos: new Array(photoCounts?.[i] ?? 0)
+  }));
 }
 
 function getCameraFromProgress(
@@ -45,35 +41,26 @@ function getCameraFromProgress(
   if (cps.length === 0) return { lat: -7.5, lng: 112.5 };
   if (cps.length === 1) return { lat: cps[0].lat, lng: cps[0].lng };
 
-  const N = cps.length;
-  const totalVH = getTotalVHFromCounts(N, photoCounts);
+  const virtualCPs = buildVirtualCheckpoints(cps, photoCounts);
+  const totalVH = getTotalVH(virtualCPs);
   const vh = progress * totalVH;
 
-  let startVH = 0;
-  for (let k = 0; k < N; k++) {
-    const pc = photoCounts?.[k] ?? 2;
-    const entryEnd = startVH + SLICE_VH;       // end of entry slice
-    const budgetEnd = startVH + (1 + pc) * SLICE_VH; // end of full checkpoint budget
+  const k = getActiveCheckpointIndex(virtualCPs, vh);
+  const startVH = getCheckpointStartVH(virtualCPs, k);
+  const { SLICE_VH } = SCROLL_CONFIG;
 
-    if (vh < entryEnd) {
-      // In k's entry slice: travel from k-1 → k (or stay at 0 for first checkpoint)
-      if (k === 0) return { lat: cps[0].lat, lng: cps[0].lng };
-      const t = (vh - startVH) / SLICE_VH;
-      return {
-        lat: lerp(cps[k - 1].lat, cps[k].lat, t),
-        lng: lerp(cps[k - 1].lng, cps[k].lng, t),
-      };
-    }
-
-    if (vh < budgetEnd) {
-      // In k's photo slices: park at k
-      return { lat: cps[k].lat, lng: cps[k].lng };
-    }
-
-    startVH = budgetEnd;
+  if (vh < startVH + SLICE_VH) {
+    // In transition slice: travel from k-1 → k
+    if (k === 0) return { lat: cps[0].lat, lng: cps[0].lng };
+    const t = (vh - startVH) / SLICE_VH;
+    return {
+      lat: lerp(cps[k - 1].lat, cps[k].lat, t),
+      lng: lerp(cps[k - 1].lng, cps[k].lng, t),
+    };
   }
 
-  return { lat: cps[N - 1].lat, lng: cps[N - 1].lng };
+  // Parked at k
+  return { lat: cps[k].lat, lng: cps[k].lng };
 }
 
 function getMotoBearing(
@@ -82,21 +69,27 @@ function getMotoBearing(
   progress: number,
 ) {
   if (cps.length < 2) return 0;
-  const N = cps.length;
-  const totalVH = getTotalVHFromCounts(N, photoCounts);
+  
+  const virtualCPs = buildVirtualCheckpoints(cps, photoCounts);
+  const totalVH = getTotalVH(virtualCPs);
   const vh = progress * totalVH;
 
-  let startVH = 0;
-  for (let k = 0; k < N - 1; k++) {
-    const pc = photoCounts?.[k] ?? 2;
-    const budgetEnd = startVH + (1 + pc) * SLICE_VH;
-    // Face next checkpoint from start of k's budget until end of k+1's entry slice
-    if (vh < budgetEnd + SLICE_VH) {
-      return getBearing(cps[k], cps[k + 1]);
-    }
-    startVH = budgetEnd;
+  const k = getActiveCheckpointIndex(virtualCPs, vh);
+  const startVH = getCheckpointStartVH(virtualCPs, k);
+  const { SLICE_VH } = SCROLL_CONFIG;
+
+  if (vh < startVH + SLICE_VH && k > 0) {
+    // During travel from k-1 to k
+    return getBearing(cps[k - 1], cps[k]);
   }
-  return getBearing(cps[N - 2], cps[N - 1]);
+  
+  // Parked at k, look toward next checkpoint
+  if (k < cps.length - 1) {
+    return getBearing(cps[k], cps[k + 1]);
+  }
+  
+  // Parked at the last one
+  return getBearing(cps[k - 1], cps[k]);
 }
 
 function getBearing(a: CheckpointCoord, b: CheckpointCoord) {

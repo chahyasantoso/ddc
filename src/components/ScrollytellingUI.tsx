@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useScroll, useTransform, motion, type MotionValue, useMotionValueEvent } from 'framer-motion';
 import { useRef } from 'react';
-import { FloatingPhotos } from './FloatingPhotos';
+
 import { CheckpointInfoCard } from './CheckpointInfoCard';
 import { InteractiveMap } from './InteractiveMap';
 import type { Checkpoint } from '../lib/types.client';
@@ -10,9 +10,11 @@ import {
   getTotalVH,
   getCheckpointStartVH,
   getActiveCheckpointIndex,
+  sliceCount,
   useJumpableSpring,
   triggerScrollyJump,
 } from '../lib/scrollUtils';
+import { CheckpointAlbum } from './CheckpointAlbum';
 
 interface Props {
   checkpoints: Checkpoint[];
@@ -69,20 +71,39 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
   );
 
   // Dispatch active checkpoint events for map synchronization.
-  // A checkpoint is "active" for its entire scroll budget, keeping the marker pinned.
+  const prevActiveKRef = useRef(-1);
+
   useMotionValueEvent(smoothVH, 'change', (vh) => {
     if (checkpoints.length === 0) return;
-    const activeK = getActiveCheckpointIndex(checkpoints, vh);
-    window.dispatchEvent(
-      new CustomEvent('ddc:checkpoint-active', { detail: { id: checkpoints[activeK].id } }),
-    );
+    
+    // 1. Get the current 'block' exactly how the map calculates the camera
+    const k = getActiveCheckpointIndex(checkpoints, vh);
+    const startVH = getCheckpointStartVH(checkpoints, k);
+    const { SLICE_VH } = SCROLL_CONFIG;
+
+    // 2. Determine the active ring
+    let activeK = k;
+    if (k > 0 && vh < startVH + SLICE_VH) {
+      // If we haven't finished the 100vh transition slice into k, 
+      // the motorcycle is still traveling from k-1.
+      activeK = k - 1;
+    }
+
+    // Only dispatch the event if the active ring actually changed
+    if (activeK !== prevActiveKRef.current) {
+      prevActiveKRef.current = activeK;
+      window.dispatchEvent(
+        new CustomEvent('ddc:checkpoint-active', { detail: { id: checkpoints[activeK].id } }),
+      );
+    }
   });
 
   const handleJump = useCallback(
     (targetIdx: number) => {
       const currentVh = smoothVH.get();
-      const currentIdx = getActiveCheckpointIndex(checkpoints, currentVh);
-      const isSequential = Math.abs(currentIdx - targetIdx) <= 1;
+      // Always use the teleport jump when clicking a map marker.
+      // Smooth scrolling through a long adjacent album feels like a bug.
+      const isSequential = false;
       triggerScrollyJump(checkpoints, targetIdx, isSequential);
     },
     [smoothVH, checkpoints],
@@ -102,7 +123,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
           id={`checkpoint-snap-${i}`}
           style={{
             position: 'absolute',
-            top: `${getCheckpointStartVH(checkpoints, i)}vh`,
+            top: `${getCheckpointStartVH(checkpoints, i) + (i === 0 ? 0 : SCROLL_CONFIG.SLICE_VH)}vh`,
             height: '100vh',
             width: '100%',
             scrollSnapAlign: 'start',
@@ -147,7 +168,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
         <div className="floating-photos-zone">
           {checkpoints.length > 0 ? (
             checkpoints.map((cp, i) => (
-              <CheckpointLayer
+              <CheckpointAlbum
                 key={cp.id}
                 cp={cp}
                 checkpoints={checkpoints}
@@ -272,98 +293,5 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
   );
 }
 
-// ── Sub-components for Hook Scoping ───────────────────────────────────────────
 
-interface CheckpointLayerProps {
-  cp: Checkpoint;
-  checkpoints: Checkpoint[];
-  i: number;
-  total: number;
-  smoothVH: MotionValue<number>;
-  entryProgress: MotionValue<number>;
-}
 
-function CheckpointLayer({
-  cp,
-  checkpoints,
-  i,
-  total,
-  smoothVH,
-  entryProgress,
-}: CheckpointLayerProps) {
-  const { SLICE_VH, PARKED_TOLERANCE, FADE_DURATION } = SCROLL_CONFIG;
-
-  // The checkpoint is "visible" from its entry slice through its last photo slice.
-  // reveal drives the info card fade; photos manage their own per-slice reveals.
-  const reveal = useTransform(smoothVH, (vh) => {
-    const startVH = getCheckpointStartVH(checkpoints, i);
-    // Full budget: entry + all photos
-    const budgetVH = (1 + cp.photos.length) * SLICE_VH;
-    const endVH = startVH + budgetVH;
-    // Center of the entry slice — checkpoint "parks" here first
-    const centerVH = startVH + SLICE_VH * 0.5;
-
-    // Leading edge: fade in as we approach the checkpoint center
-    if (vh < centerVH - PARKED_TOLERANCE) {
-      const dist = centerVH - PARKED_TOLERANCE - vh;
-      if (dist > FADE_DURATION) return 0;
-      return 1 - dist / FADE_DURATION;
-    }
-    // Parked + photo zone: fully visible until we leave the whole budget
-    if (vh <= endVH + PARKED_TOLERANCE) return 1;
-    // Trailing edge: fade out after the last photo slice
-    const isLast = i === total - 1;
-    if (isLast) return 1; // Last checkpoint stays on screen
-    const dist = vh - (endVH + PARKED_TOLERANCE);
-    if (dist > FADE_DURATION) return 0;
-    return 1 - dist / FADE_DURATION;
-  });
-
-  // Combine with entry sequence for the very first checkpoint
-  const gatedReveal = useTransform([reveal, entryProgress], ([raw, ep]) => {
-    if (i === 0) return (raw as number) * (ep as number);
-    return raw as number;
-  });
-
-  const infoY = useTransform(gatedReveal, (r) => (1 - r) * 20);
-
-  return (
-    <>
-      <motion.div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          pointerEvents: 'none',
-        }}
-      >
-        <FloatingPhotos
-          checkpoint={cp}
-          checkpoints={checkpoints}
-          smoothVH={smoothVH}
-          index={i}
-          checkpointReveal={gatedReveal}
-        />
-      </motion.div>
-
-      <motion.div
-        style={{
-          position: 'absolute',
-          opacity: gatedReveal,
-          y: infoY,
-          zIndex: 50,
-          willChange: 'opacity, transform',
-          pointerEvents: 'none',
-        }}
-        className="checkpoint-info-zone pointer-events-none"
-      >
-        <motion.div
-          style={{
-            pointerEvents: useTransform(gatedReveal, (r) => (r > 0.5 ? 'auto' : 'none')) as any,
-          }}
-        >
-          <CheckpointInfoCard checkpoint={cp} index={i} total={total} />
-        </motion.div>
-      </motion.div>
-    </>
-  );
-}
