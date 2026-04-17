@@ -123,10 +123,10 @@ function PhotoSlideInstance({
 }: PhotoSlideInstanceProps) {
   const { SLICE_VH } = SCROLL_CONFIG;
 
-  let offsetVH = photoIdx * SLICE_VH;
-  if (index === 0 && photoIdx > 0) {
-    offsetVH -= 100;
-  }
+  // Checkpoint 0's Photo 0 finishes arriving during the map's zoom-in sequence.
+  // Because of this, we shift its entire schedule left by 1 slice (-100vh),
+  // so its Photo 1 starts arriving immediately as the user scrolls.
+  let offsetVH = (photoIdx - (index === 0 ? 1 : 0)) * SLICE_VH;
   const sliceStart = startVH + offsetVH;
   const sliceEnd = sliceStart + SLICE_VH;
 
@@ -139,12 +139,17 @@ function PhotoSlideInstance({
     ([pr, cr]) => {
       const prVal = pr as number;
       const crVal = cr as number;
-      
+
       // The FIRST photo of ANY checkpoint uses checkpointReveal as its primary signal.
       // This guarantees it's visible (reveal=1) as soon as the checkpoint opens, 
       // whether via normal scroll or a jump. localReveal only pushes it to 2 (the
       // "covered/tilted" state) when the next photo arrives on top.
       if (photoIdx === 0) {
+        // Special case for CP0 Photo 0: During the map entry zoom, crVal goes 0->1 while prVal is ALREADY 1
+        // because we shifted its slice schedule left to -100vh. We must force it to use crVal so we see the fly-in!
+        if (index === 0 && crVal < 0.999) {
+          return crVal;
+        }
         return Math.max(crVal, prVal);
       }
       return prVal * Math.min(1, crVal);

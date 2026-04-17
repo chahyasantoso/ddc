@@ -4,7 +4,6 @@ export function HeroSection(): ReactElement {
   return (
     <section 
       className="relative w-full h-screen flex flex-col items-center justify-center bg-[#0a0a09] text-[#f4f4f5] overflow-hidden"
-      style={{ scrollSnapAlign: 'start' }}
     >
       {/* Dynamic faint background graphic or simple gradient */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-800/30 via-[#0a0a09] to-[#0a0a09] z-0"></div>

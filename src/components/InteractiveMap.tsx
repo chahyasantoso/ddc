@@ -49,7 +49,8 @@ function getCameraFromProgress(
   const startVH = getCheckpointStartVH(virtualCPs, k);
   const { SLICE_VH } = SCROLL_CONFIG;
 
-  if (vh < startVH + SLICE_VH) {
+  // Add a tiny 0.5vh margin to handle floating point inaccuracy when jumping exactly to borders
+  if (vh < startVH + SLICE_VH - 0.5) {
     // In transition slice: travel from k-1 → k
     if (k === 0) return { lat: cps[0].lat, lng: cps[0].lng };
     const t = (vh - startVH) / SLICE_VH;
@@ -78,7 +79,7 @@ function getMotoBearing(
   const startVH = getCheckpointStartVH(virtualCPs, k);
   const { SLICE_VH } = SCROLL_CONFIG;
 
-  if (vh < startVH + SLICE_VH && k > 0) {
+  if (vh < startVH + SLICE_VH - 0.5 && k > 0) {
     // During travel from k-1 to k
     return getBearing(cps[k - 1], cps[k]);
   }

@@ -4,7 +4,6 @@ export function FooterSection(): ReactElement {
   return (
     <footer 
       className="w-full bg-[#050505] text-zinc-500 py-16 px-6 border-t border-zinc-800/50"
-      style={{ scrollSnapAlign: 'start' }}
     >
       <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex flex-col items-center md:items-start gap-2">

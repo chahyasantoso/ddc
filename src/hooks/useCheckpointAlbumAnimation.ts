@@ -22,7 +22,7 @@ export function useCheckpointAlbumAnimation({
   const { SLICE_VH } = SCROLL_CONFIG;
 
   const startVH = getCheckpointStartVH(checkpoints, i);
-  const budgetVH = sliceCount(cp) * SLICE_VH;
+  const budgetVH = sliceCount(cp, i) * SLICE_VH;
   const endVH = startVH + budgetVH;
 
   // Group Y translation: when vh exceeds endVH, the entire group scrolls up (0 to -100vh) over the next slice.

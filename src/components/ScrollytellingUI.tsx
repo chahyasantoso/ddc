@@ -83,7 +83,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
 
     // 2. Determine the active ring
     let activeK = k;
-    if (k > 0 && vh < startVH + SLICE_VH) {
+    if (k > 0 && vh < startVH + SLICE_VH - 0.5) {
       // If we haven't finished the 100vh transition slice into k, 
       // the motorcycle is still traveling from k-1.
       activeK = k - 1;
@@ -116,15 +116,32 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
       style={{ height: `${containerHeightVH}vh`, position: 'relative' }}
     >
 
-      {/* INVISIBLE SNAP ANCHORS: Aligns browser scroll with checkpoint entry points */}
-      {checkpoints.map((cp, i) => (
+      {/* INVISIBLE SNAP ANCHORS: Aligns browser scroll with the arrival of EACH photo! */}
+      {checkpoints.flatMap((cp, i) => {
+        const startVH = getCheckpointStartVH(checkpoints, i);
+        
+        const snaps = cp.photos.map((_, photoIdx) => {
+          const isCPArrival = i > 0 && photoIdx === 0;
+          // Checkpoint 0 is shifted left by 1 slice, so its arrival points are (photoIdx) * 100vh
+          // instead of (photoIdx + 1) * 100vh.
+          const arrivalVH = startVH + (i === 0 ? photoIdx : photoIdx + 1) * SCROLL_CONFIG.SLICE_VH;
+          
+          return {
+            // For jumps, we anchor to the first photo's arrival point (except CP0, which map clicks jump to 0vh manually if we want, or rather checkpoint-snap-0 is P0 arrival which is 0vh)
+            id: (i === 0 && photoIdx === 0) || isCPArrival ? `checkpoint-snap-${i}` : undefined,
+            vh: arrivalVH
+          };
+        });
+        
+        return snaps;
+      }).map((snap, globalIdx) => (
         <div
-          key={`snap-${cp.id}`}
-          id={`checkpoint-snap-${i}`}
+          key={snap.id || `photo-snap-${globalIdx}`}
+          id={snap.id}
           style={{
             position: 'absolute',
-            top: `${getCheckpointStartVH(checkpoints, i) + (i === 0 ? 0 : SCROLL_CONFIG.SLICE_VH)}vh`,
-            height: '100vh',
+            top: `${snap.vh}vh`,
+            height: '10px',
             width: '100%',
             scrollSnapAlign: 'start',
             pointerEvents: 'none',

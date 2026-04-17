@@ -35,15 +35,17 @@ export interface CheckpointLike {
 // ── Slice-count helpers ───────────────────────────────────────────────────────
 
 /** Number of scroll slices consumed by checkpoint k. */
-export function sliceCount(cp: CheckpointLike) {
-  return Math.max(1, cp.photos.length);
+export function sliceCount(cp: CheckpointLike, idx?: number) {
+  const c = cp.photos.length;
+  if (idx === 0) return Math.max(1, c - 1);
+  return Math.max(1, c);
 }
 
 /** Cumulative scroll offset (in vh) where checkpoint k begins. */
 export function getCheckpointStartVH(checkpoints: CheckpointLike[], idx: number): number {
   let vh = 0;
   for (let i = 0; i < idx; i++) {
-    vh += sliceCount(checkpoints[i]) * SCROLL_CONFIG.SLICE_VH;
+    vh += sliceCount(checkpoints[i], i) * SCROLL_CONFIG.SLICE_VH;
   }
   return vh;
 }
@@ -53,7 +55,7 @@ export function getCheckpointStartVH(checkpoints: CheckpointLike[], idx: number)
  * Add extra 100vh padding so the last checkpoint can fully settle.
  */
 export function getTotalVH(checkpoints: CheckpointLike[]): number {
-  const sum = checkpoints.reduce((acc, cp) => acc + sliceCount(cp) * SCROLL_CONFIG.SLICE_VH, 0);
+  const sum = checkpoints.reduce((acc, cp, idx) => acc + sliceCount(cp, idx) * SCROLL_CONFIG.SLICE_VH, 0);
   return Math.max(0, sum);
 }
 
@@ -92,7 +94,7 @@ export function getActiveCheckpointIndex(
 ): number {
   let idx = 0;
   for (let i = 0; i < checkpoints.length; i++) {
-    const end = getCheckpointStartVH(checkpoints, i) + sliceCount(checkpoints[i]) * SCROLL_CONFIG.SLICE_VH;
+    const end = getCheckpointStartVH(checkpoints, i) + sliceCount(checkpoints[i], i) * SCROLL_CONFIG.SLICE_VH;
     if (smoothVH < end) {
       idx = i;
       break;
