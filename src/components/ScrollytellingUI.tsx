@@ -112,27 +112,12 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
         <div
           key={snap.id || `photo-snap-${globalIdx}`}
           id={snap.id}
-          style={{
-            position: 'absolute',
-            top: `${snap.vh}vh`,
-            height: '10px',
-            width: '100%',
-            scrollSnapAlign: 'start',
-            pointerEvents: 'none',
-          }}
+          className="scroll-snap-anchor"
+          style={{ top: `${snap.vh}vh` }}
         />
       ))}
 
-      <div
-        className="sticky-content-layer"
-        style={{
-          position: 'sticky',
-          top: 0,
-          height: '100dvh', // Modern dynamic viewport (100vh fallback)
-          minHeight: '100vh', 
-          width: '100vw',
-        }}
-      >
+      <div className="sticky-viewport">
 
         {/* Interactive Map Layer */}
         {/* pointerEvents: 'none' on the wrapper lets photo clicks pass through.   */}
@@ -150,7 +135,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
               pointerEvents: 'none',
             }}
           >
-            <div style={{ width: '100%', height: '100%', pointerEvents: 'auto' }}>
+            <div className="map-canvas-layer">
               <InteractiveMap
                 checkpoints={mapCheckpoints}
                 photoCounts={checkpoints.map(cp => cp.photos.length)}
@@ -176,60 +161,16 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
               />
             ))
           ) : (
-            /* COMING SOON OVERLAY */
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 60,
-                background: 'rgba(15, 14, 13, 0.4)',
-                backdropFilter: 'blur(4px)',
-              }}
-            >
+            <div className="coming-soon-overlay">
               <motion.div
+                className="coming-soon-content"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, ease: 'easeOut' }}
-                style={{ textAlign: 'center', color: '#fff' }}
               >
-                <h2
-                  style={{
-                    fontFamily: '"Oswald", sans-serif',
-                    fontSize: 'clamp(3rem, 10vw, 6rem)',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                    marginBottom: '1rem',
-                    background: 'linear-gradient(180deg, #fff 40%, rgba(255,255,255,0.4) 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                  }}
-                >
-                  Coming Soon
-                </h2>
-                <p
-                  style={{
-                    fontSize: '18px',
-                    opacity: 0.8,
-                    letterSpacing: '0.2em',
-                    textTransform: 'uppercase',
-                    fontWeight: 500,
-                  }}
-                >
-                  Preparing the next journey
-                </p>
-                <div
-                  style={{
-                    width: '60px',
-                    height: '2px',
-                    background: '#f59e0b',
-                    margin: '2rem auto 0',
-                    boxShadow: '0 0 15px #f59e0b',
-                  }}
-                />
+                <h2 className="coming-soon-title">Coming Soon</h2>
+                <p className="coming-soon-subtitle">Preparing the next journey</p>
+                <div className="coming-soon-divider" />
               </motion.div>
             </div>
           )}
@@ -240,47 +181,12 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
       {/* Floating "Latest Update" jump button */}
       {checkpoints.length > 0 && (
         <button
+          className="latest-update-btn"
           onClick={() => handleJump(checkpoints.length - 1)}
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            zIndex: 100,
-            background: 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(8px)',
-            color: '#0f0e0d',
-            border: '1px solid rgba(0,0,0,0.1)',
-            padding: '12px 16px',
-            borderRadius: '50px',
-            fontWeight: 600,
-            fontSize: '14px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-          }}
         >
           <span>Latest Update</span>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19" />
             <polyline points="19 12 12 19 5 12" />
           </svg>

@@ -84,7 +84,7 @@ export function InteractiveMap({ checkpoints, photoCounts, scrollProgress, onChe
   } : null;
 
   return (
-    <div style={{ width: '100%', height: '100%' }}>
+    <div className="map-container">
       <Map
         {...viewState}
         // Camera padding: keeps motorcycle in left (desktop) or top (mobile) portion
@@ -97,7 +97,7 @@ export function InteractiveMap({ checkpoints, photoCounts, scrollProgress, onChe
         doubleClickZoom={false}
         touchZoomRotate={false}
         keyboard={false}
-        style={{ width: '100%', height: '100%', cursor: 'default' }}
+        style={{ width: '100%', height: '100%' }}
       >
         {/* Route */}
         {routeGeoJSON && (
@@ -124,27 +124,10 @@ export function InteractiveMap({ checkpoints, photoCounts, scrollProgress, onChe
               onClick={() => onCheckpointClick?.(i)}
               className="map-checkpoint-dot"
               title={cp.location_name}
-              style={{
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                pointerEvents: 'auto',
-                padding: 0,
-              }}
             >
-              <div style={{
-                width: '10px',
-                height: '10px',
-                borderRadius: '50%',
-                background: '#f59e0b',
-                border: '2px solid #1c1917',
-                boxShadow: '0 0 10px rgba(245, 158, 11, 0.4)',
-              }} />
+              <div className="checkpoint-dot-wrapper">
+                <div className="checkpoint-inner-dot" />
+              </div>
             </button>
           </Marker>
         ))}

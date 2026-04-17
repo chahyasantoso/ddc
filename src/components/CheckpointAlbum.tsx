@@ -64,7 +64,7 @@ export function CheckpointAlbum(props: CheckpointAlbumProps) {
     >
       {/* ── Album Photos Stack ── */}
       {cp.photos.length > 0 && (
-        <div className="photo-stack-wrapper" style={{ pointerEvents: 'auto' }}>
+        <div className="photo-stack-wrapper">
           <div className="ps-deck">
             {cp.photos.map((photo, photoIdx) => (
               <PhotoSlideInstance

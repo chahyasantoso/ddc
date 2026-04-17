@@ -1,0 +1,123 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   modal.css — PhotoModal lightbox styles
+   
+   Moved from global.css. All pm-* classes live here.
+   The modal is rendered via React Portal directly into <body>, so these styles
+   are globally scoped and will always apply regardless of import location.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Backdrop ─────────────────────────────────────────────────────────────── */
+.pm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+/* ── Centering wrapper ────────────────────────────────────────────────────── */
+/* position:fixed full-screen flex wrapper so Framer Motion's own transform    */
+/* on .pm-panel doesn't clobber translate(-50%,-50%) centering.               */
+.pm-centering {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* Backdrop handles its own clicks */
+}
+
+/* ── Panel ────────────────────────────────────────────────────────────────── */
+.pm-panel {
+  width: min(92vw, 480px);
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  background: #f9f6f0;
+  border-radius: 4px;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.7),
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  position: relative; /* anchor for .pm-close */
+  pointer-events: auto;
+}
+
+/* ── Close button ─────────────────────────────────────────────────────────── */
+.pm-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #1a1a1a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  transition: background 0.15s, transform 0.15s;
+}
+
+.pm-close:hover {
+  background: #333;
+  transform: scale(1.1);
+}
+
+/* ── Scroll container ─────────────────────────────────────────────────────── */
+/* Independent scroll — overscroll-behavior prevents propagating to the page.  */
+.pm-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  flex: 1;
+  min-height: 0; /* Critical: allow flex child to scroll */
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* IE/Edge */
+}
+
+.pm-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
+}
+
+/* ── Polaroid frame ───────────────────────────────────────────────────────── */
+.pm-polaroid {
+  padding: 14px 14px 28px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pm-photo-frame {
+  width: 100%;
+  border-radius: 2px;
+  overflow: hidden;
+  background: #e8e4de;
+}
+
+.pm-photo {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+/* ── Caption area ─────────────────────────────────────────────────────────── */
+.pm-caption-area {
+  padding: 16px 4px 8px;
+}
+
+.pm-caption-text {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: #2a2420;
+  white-space: pre-wrap; /* Preserve newlines in long captions */
+  margin: 0;
+}
