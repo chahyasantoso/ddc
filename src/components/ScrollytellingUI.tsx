@@ -1,6 +1,5 @@
-import { useCallback } from 'react';
-import { useScroll, useTransform, motion, type MotionValue, useMotionValueEvent } from 'framer-motion';
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
+import { useScroll, useTransform, motion, type MotionValue } from 'framer-motion';
 
 import { CheckpointInfoCard } from './CheckpointInfoCard';
 import { InteractiveMap } from './InteractiveMap';
@@ -9,11 +8,11 @@ import {
   SCROLL_CONFIG,
   getTotalVH,
   getCheckpointStartVH,
-  getActiveCheckpointIndex,
   sliceCount,
-  useJumpableSpring,
   triggerScrollyJump,
 } from '../lib/scrollUtils';
+import { useJumpableSpring } from '../hooks/useJumpableSpring';
+import { useActiveCheckpoint } from '../hooks/useActiveCheckpoint';
 import { CheckpointAlbum } from './CheckpointAlbum';
 
 interface Props {
@@ -70,33 +69,8 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
     Math.max(0, Math.min(1, p)) * totalVH,
   );
 
-  // Dispatch active checkpoint events for map synchronization.
-  const prevActiveKRef = useRef(-1);
-
-  useMotionValueEvent(smoothVH, 'change', (vh) => {
-    if (checkpoints.length === 0) return;
-    
-    // 1. Get the current 'block' exactly how the map calculates the camera
-    const k = getActiveCheckpointIndex(checkpoints, vh);
-    const startVH = getCheckpointStartVH(checkpoints, k);
-    const { SLICE_VH } = SCROLL_CONFIG;
-
-    // 2. Determine the active ring
-    let activeK = k;
-    if (k > 0 && vh < startVH + SLICE_VH - 0.5) {
-      // If we haven't finished the 100vh transition slice into k, 
-      // the motorcycle is still traveling from k-1.
-      activeK = k - 1;
-    }
-
-    // Only dispatch the event if the active ring actually changed
-    if (activeK !== prevActiveKRef.current) {
-      prevActiveKRef.current = activeK;
-      window.dispatchEvent(
-        new CustomEvent('ddc:checkpoint-active', { detail: { id: checkpoints[activeK].id } }),
-      );
-    }
-  });
+  // Dispatch active checkpoint ring events to the map
+  useActiveCheckpoint(smoothVH, checkpoints);
 
   const handleJump = useCallback(
     (targetIdx: number) => {

@@ -15,9 +15,10 @@
  *   cp1: 4 slices → 300–700 vh
  *   cp2: 2 slices → 700–900 vh
  *   Total = 900 vh
+ *
+ * NOTE: This file contains ONLY pure functions and constants.
+ * React hooks (useJumpableSpring) live in src/hooks/.
  */
-import { useEffect, useRef } from 'react';
-import { useMotionValue, useSpring, type MotionValue } from 'framer-motion';
 
 // ── Tuning constants ──────────────────────────────────────────────────────────
 
@@ -137,52 +138,3 @@ export function triggerScrollyJump(
   }
 }
 
-// ── Spring with jump bypass ───────────────────────────────────────────────────
-
-/**
- * Drop-in replacement for useSpring() that can be temporarily bypassed.
- * When a 'ddc:jump-state' event fires, the spring is skipped so that
- * instant-scroll jumps don't visibly animate through intermediate states.
- */
-export function useJumpableSpring(sourceValue: MotionValue<number>, config: any) {
-  const targetValue = useMotionValue(sourceValue.get());
-  const smoothValue = useSpring(targetValue, config);
-  // Start as true so browser scroll restoration skips the initial spring
-  const isJumping = useRef(true);
-
-  useEffect(() => {
-    const settleTimeout = setTimeout(() => {
-      isJumping.current = false;
-    }, 200);
-
-    const handleJump = (e: any) => {
-      isJumping.current = e.detail.jumping;
-    };
-    window.addEventListener('ddc:jump-state', handleJump);
-    return () => {
-      clearTimeout(settleTimeout);
-      window.removeEventListener('ddc:jump-state', handleJump);
-    };
-  }, []);
-
-  useEffect(() => {
-    const initial = sourceValue.get();
-    targetValue.set(initial);
-    if ((smoothValue as any).jump) (smoothValue as any).jump(initial);
-
-    const unsub = sourceValue.on('change', (latest) => {
-      targetValue.set(latest);
-      if (isJumping.current) {
-        // jump() is preferred (bypasses internal velocity), set() is a fallback
-        if ((smoothValue as any).jump) {
-          (smoothValue as any).jump(latest);
-        } else {
-          (smoothValue as any).set(latest);
-        }
-      }
-    });
-    return unsub;
-  }, [sourceValue, targetValue, smoothValue]);
-
-  return smoothValue;
-}

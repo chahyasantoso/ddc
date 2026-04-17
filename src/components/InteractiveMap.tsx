@@ -1,155 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useScroll, useMotionValueEvent, useSpring, type MotionValue } from 'framer-motion';
+import { useMotionValueEvent, type MotionValue } from 'framer-motion';
 import Map, { Source, Layer, Marker, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useJumpableSpring, SCROLL_CONFIG, getTotalVH, getActiveCheckpointIndex, getCheckpointStartVH } from '../lib/scrollUtils';
+import { useJumpableSpring } from '../hooks/useJumpableSpring';
+import { useCameraPadding } from '../hooks/useCameraPadding';
+import {
+  getCameraFromProgress,
+  getMotoBearing,
+  buildRouteGeoJSON,
+  buildMarkersGeoJSON,
+  MAP_STYLE,
+  type CheckpointCoord,
+} from '../lib/mapUtils';
+import { useScroll } from 'framer-motion';
 
-// ── Types ────────────────────────────────────────────────────────────────────
-interface CheckpointCoord {
-  id: number;
-  location_name: string;
-  lat: number;
-  lng: number;
-}
+// ── Props ─────────────────────────────────────────────────────────────────────
 interface InteractiveMapProps {
   checkpoints: CheckpointCoord[];
   /** Photo count per checkpoint — drives how long the camera parks at each stop. */
   photoCounts?: number[];
   scrollProgress?: MotionValue<number>;
   onCheckpointClick?: (index: number) => void;
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function lerp(a: number, b: number, t: number) {
-  return a + (b - a) * Math.max(0, Math.min(1, t));
-}
-
-// Map camera uses VH-aware math so the camera parks at each checkpoint
-// for the duration of ALL its photo slices, then pans to the next checkpoint
-// only during the next checkpoint's entry slice.
-function buildVirtualCheckpoints(cps: CheckpointCoord[], photoCounts?: number[]) {
-  return cps.map((cp, i) => ({
-    photos: new Array(photoCounts?.[i] ?? 0)
-  }));
-}
-
-function getCameraFromProgress(
-  cps: CheckpointCoord[],
-  photoCounts: number[] | undefined,
-  progress: number,
-): { lat: number; lng: number } {
-  if (cps.length === 0) return { lat: -7.5, lng: 112.5 };
-  if (cps.length === 1) return { lat: cps[0].lat, lng: cps[0].lng };
-
-  const virtualCPs = buildVirtualCheckpoints(cps, photoCounts);
-  const totalVH = getTotalVH(virtualCPs);
-  const vh = progress * totalVH;
-
-  const k = getActiveCheckpointIndex(virtualCPs, vh);
-  const startVH = getCheckpointStartVH(virtualCPs, k);
-  const { SLICE_VH } = SCROLL_CONFIG;
-
-  // Add a tiny 0.5vh margin to handle floating point inaccuracy when jumping exactly to borders
-  if (vh < startVH + SLICE_VH - 0.5) {
-    // In transition slice: travel from k-1 → k
-    if (k === 0) return { lat: cps[0].lat, lng: cps[0].lng };
-    const t = (vh - startVH) / SLICE_VH;
-    return {
-      lat: lerp(cps[k - 1].lat, cps[k].lat, t),
-      lng: lerp(cps[k - 1].lng, cps[k].lng, t),
-    };
-  }
-
-  // Parked at k
-  return { lat: cps[k].lat, lng: cps[k].lng };
-}
-
-function getMotoBearing(
-  cps: CheckpointCoord[],
-  photoCounts: number[] | undefined,
-  progress: number,
-) {
-  if (cps.length < 2) return 0;
-  
-  const virtualCPs = buildVirtualCheckpoints(cps, photoCounts);
-  const totalVH = getTotalVH(virtualCPs);
-  const vh = progress * totalVH;
-
-  const k = getActiveCheckpointIndex(virtualCPs, vh);
-  const startVH = getCheckpointStartVH(virtualCPs, k);
-  const { SLICE_VH } = SCROLL_CONFIG;
-
-  if (vh < startVH + SLICE_VH - 0.5 && k > 0) {
-    // During travel from k-1 to k
-    return getBearing(cps[k - 1], cps[k]);
-  }
-  
-  // Parked at k, look toward next checkpoint
-  if (k < cps.length - 1) {
-    return getBearing(cps[k], cps[k + 1]);
-  }
-  
-  // Parked at the last one
-  return getBearing(cps[k - 1], cps[k]);
-}
-
-function getBearing(a: CheckpointCoord, b: CheckpointCoord) {
-  const angle = Math.atan2(b.lng - a.lng, b.lat - a.lat) * (180 / Math.PI);
-  return (angle + 360) % 360;
-}
-
-// ── Map style ─────────────────────────────────────────────────────────────────
-const MAP_STYLE = {
-  version: 8 as const,
-  glyphs : 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-  sources: { java: { type: 'geojson' as const, data: '/java.geojson' } },
-  layers : [
-    { id: 'background', type: 'background' as const,
-      paint: { 'background-color': '#0f0e0d' } },
-    { id: 'java-fill', type: 'fill' as const, source: 'java',
-      paint: { 'fill-color': '#1e1a18', 'fill-opacity': 0.97 } },
-    { id: 'java-outline', type: 'line' as const, source: 'java',
-      paint: { 'line-color': '#3d3530', 'line-width': 0.8, 'line-opacity': 0.7 } },
-  ],
-};
-
-function buildRouteGeoJSON(cps: CheckpointCoord[]) {
-  if (cps.length < 2) return null;
-  return { type: 'Feature' as const,
-    geometry: { type: 'LineString' as const,
-      coordinates: cps.map(cp => [cp.lng, cp.lat]) }, properties: {} };
-}
-
-function buildMarkersGeoJSON(cps: CheckpointCoord[]) {
-  return { type: 'FeatureCollection' as const,
-    features: cps.map((cp, i) => ({ type: 'Feature' as const,
-      geometry: { type: 'Point' as const, coordinates: [cp.lng, cp.lat] },
-      properties: { id: cp.id, name: cp.location_name, index: i } })) };
-}
-
-// ── Camera padding hook (left-half focus on desktop, top-half on mobile) ─────
-interface Padding { top: number; right: number; bottom: number; left: number }
-
-function useCameraPadding(): Padding {
-  const [pad, setPad] = useState<Padding>({ top: 0, right: 0, bottom: 0, left: 0 });
-
-  useEffect(() => {
-    function update() {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      setPad(w >= 768
-        // Desktop: photos cover right 45% → offset camera into left half
-        ? { top: 0, right: Math.round(w * 0.45), bottom: 0, left: 0 }
-        // Mobile: photos + info cover bottom 55% → offset camera into top 45%
-        : { top: 0, right: 0, bottom: Math.round(h * 0.55), left: 0 }
-      );
-    }
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
-
-  return pad;
 }
 
 const ZOOM = 7.5;
