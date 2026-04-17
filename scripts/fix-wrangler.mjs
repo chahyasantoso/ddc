@@ -1,39 +1,32 @@
 #!/usr/bin/env node
-/**
- * Post-build fix for Astro 6 on Cloudflare Pages.
- * 
- * Instead of relying on wrangler.json (which Cloudflare Pages currently struggles to validate),
- * we create a standard `_worker.js` proxy in the root of the build directory.
- * 
- * This is the most robust way to ensure Cloudflare Pages detects the SSR Function.
- */
 import { writeFileSync, rmSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const distPath = join(__dirname, '..', 'dist');
-const workerProxyPath = join(distPath, '_worker.js');
-const generatedConfigPath = join(distPath, 'server', 'wrangler.json');
-const redundantConfigPath = join(distPath, 'wrangler.json');
+const rootPath = join(__dirname, '..');
+const distPath = join(rootPath, 'dist');
+const wranglerMetadataPath = join(rootPath, '.wrangler');
 
-// 1. Create the _worker.js proxy
-// It simply exports the default handler from the Astro-generated entry point.
+// 1. Buat _worker.js proxy di root dist
+const workerProxyPath = join(distPath, '_worker.js');
 const proxyContent = `export { default } from './server/entry.mjs';\n`;
 writeFileSync(workerProxyPath, proxyContent);
-console.log('[fix-wrangler] ✓ Created _worker.js proxy at root of dist');
+console.log('[fix-wrangler] ✓ Created _worker.js proxy');
 
-// 2. Remove the wrangler.json files from the build output.
-// Cloudflare Pages tries to read these as "Project Configuration" and fails 
-// because they are formatted as "Worker Configuration" (Module Worker).
-// Removing them prevents the "Invalid configuration" warning and fallback to static.
-if (existsSync(generatedConfigPath)) {
-  rmSync(generatedConfigPath);
-  console.log('[fix-wrangler] ✓ Removed generated config from dist/server/wrangler.json');
-}
-if (existsSync(redundantConfigPath)) {
-  rmSync(redundantConfigPath);
-  console.log('[fix-wrangler] ✓ Removed redundant config from dist/wrangler.json');
+// 2. HAPUS JEJAK METADATA (.wrangler)
+// Ini yang bikin Cloudflare error karena dia nyari file wrangler.json 
+// yang sebenernya nggak kita butuhin di Pages SSR.
+if (existsSync(wranglerMetadataPath)) {
+  rmSync(wranglerMetadataPath, { recursive: true, force: true });
+  console.log('[fix-wrangler] ✓ Cleaned up .wrangler metadata folder');
 }
 
-console.log('[fix-wrangler] ✓ Done! Cloudflare Pages will now detect _worker.js');
+// 3. Hapus wrangler.json di dist jika ada
+const distWrangler = join(distPath, 'wrangler.json');
+const serverWrangler = join(distPath, 'server', 'wrangler.json');
+
+if (existsSync(distWrangler)) rmSync(distWrangler);
+if (existsSync(serverWrangler)) rmSync(serverWrangler);
+
+console.log('[fix-wrangler] ✓ Done! Project is clean for _worker.js detection');
