@@ -72,8 +72,7 @@ export function ScrollSlide({
         position: 'absolute',
         inset: 0,
         zIndex,
-        pointerEvents: 'none',
-        ...outerStyle, // Contains transform, opacity, willChange
+        ...outerStyle,
       }}
     >
       <motion.div

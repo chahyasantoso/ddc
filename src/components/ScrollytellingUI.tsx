@@ -154,12 +154,15 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
         style={{
           position: 'sticky',
           top: 0,
-          height: '100vh',
+          height: '100dvh', // Modern dynamic viewport (100vh fallback)
+          minHeight: '100vh', 
           width: '100vw',
         }}
       >
 
         {/* Interactive Map Layer */}
+        {/* pointerEvents: 'none' on the wrapper lets photo clicks pass through.   */}
+        {/* The map canvas itself handles marker clicks internally via maplibre.    */}
         {mapCheckpoints && (
           <motion.div
             style={{
@@ -170,14 +173,17 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
               overflow: 'hidden',
               transformOrigin: 'center',
               backgroundColor: '#0f0e0d',
+              pointerEvents: 'none',
             }}
           >
-             <InteractiveMap
-              checkpoints={mapCheckpoints}
-              photoCounts={checkpoints.map(cp => cp.photos.length)}
-              scrollProgress={scrollYProgress}
-              onCheckpointClick={(idx) => handleJump(idx)}
-            />
+            <div style={{ width: '100%', height: '100%', pointerEvents: 'auto' }}>
+              <InteractiveMap
+                checkpoints={mapCheckpoints}
+                photoCounts={checkpoints.map(cp => cp.photos.length)}
+                scrollProgress={scrollYProgress}
+                onCheckpointClick={(idx) => handleJump(idx)}
+              />
+            </div>
           </motion.div>
         )}
 

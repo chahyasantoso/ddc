@@ -186,12 +186,11 @@ body::before {
 
 .floating-photos-zone {
   position: absolute;
-  /* Mobile: bottom half. Lifted up to avoid browser chrome cutoffs */
-  bottom: 15vh;
+  bottom: 0;
   left: 0;
   right: 0;
-  height: 50%;
-  pointer-events: none;
+  height: 48vh; /* Represents the entire bottom 48% of screen */
+  /* pointer-events managed per-child (photo-stack-wrapper = auto, rest = none) */
 }
 
 @media (min-width: 768px) {
@@ -214,7 +213,9 @@ body::before {
 
 .photo-stack-wrapper {
   position: absolute;
-  top: 8%;
+  /* Mobile: Anchor to bottom leaving just a small 5vh margin */
+  bottom: 5vh;
+  top: auto;
   left: 5%;
   right: 5%;
   pointer-events: auto;
@@ -222,7 +223,9 @@ body::before {
 
 @media (min-width: 768px) {
   .photo-stack-wrapper {
+    /* Desktop: Uses top-down flow */
     top: 12%;
+    bottom: auto;
     left: 6%;
     right: 6%;
   }
@@ -293,8 +296,8 @@ body::before {
   box-shadow:
     0 12px 32px rgba(0, 0, 0, 0.55),
     0 4px 12px rgba(0, 0, 0, 0.35);
-  pointer-events: none;
-  /* decorative only */
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 /* ── Photo frame & image ─────────────────────────────────────────────────── */
@@ -442,24 +445,27 @@ body::before {
 
 .checkpoint-info-zone {
   position: absolute;
-  /* Mobile: Just above the photo deck (which is bottom: 15vh, height: 50%) */
-  top: 0;
+  /* Mobile: Sits directly above the 48vh photo zone */
+  top: auto;
+  bottom: 48vh;
   left: 0;
   right: 0;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: flex-end;
   pointer-events: none;
   padding: 0 16px;
   z-index: 60;
+  margin-bottom: 2vh; /* Small gap between info card and photos */
 }
 
 @media (min-width: 768px) {
   .checkpoint-info-zone {
-    /* Desktop: Overlapping the top-left of the photo deck (right: 50%) */
+    /* Desktop: Reset bottom/margin, use top anchoring */
+    bottom: auto;
+    margin-bottom: 0;
     top: 15%;
     right: 48%;
-    /* Pulls it slightly more onto the map for that 'mundur' look */
     left: auto;
     width: 420px;
     margin-top: 10px;
@@ -474,12 +480,18 @@ body::before {
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
   border: 1px solid rgba(245, 158, 11, 0.18);
   border-radius: 10px;
-  padding: 16px 20px;
+  padding: 12px 16px; /* Slightly tighter on mobile */
   max-width: 420px;
   width: 100%;
   box-shadow:
     0 4px 24px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+@media (min-width: 768px) {
+  .checkpoint-info-card {
+    padding: 16px 20px;
+  }
 }
 
 .ci-eyebrow {
@@ -492,12 +504,19 @@ body::before {
 }
 
 .ci-name {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text);
   line-height: 1.2;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   letter-spacing: -0.01em;
+}
+
+@media (min-width: 768px) {
+  .ci-name {
+    font-size: 1.35rem;
+    margin-bottom: 6px;
+  }
 }
 
 .ci-desc {
@@ -689,3 +708,127 @@ body::before {
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* Admin uses Tailwind classes — no extra global CSS needed here */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PHOTO MODAL LIGHTBOX
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Backdrop: full screen frosted glass overlay */
+.pm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+/* Centering wrapper: position:fixed full-screen flex so Framer Motion's
+   own transform doesn't clobber the translate(-50%,-50%) trick.           */
+.pm-centering {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* let backdrop handle its own clicks */
+}
+
+/* Panel: the actual polaroid card */
+.pm-panel {
+  /* Size: takes up most of the viewport */
+  width: min(92vw, 480px);
+  max-height: 90dvh;
+
+  display: flex;
+  flex-direction: column;
+
+  /* Outer polaroid shell */
+  background: #f9f6f0;
+  border-radius: 4px;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.7),
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  position: relative; /* for close button absolute positioning */
+  pointer-events: auto;
+}
+
+/* Close button */
+.pm-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #1a1a1a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  transition: background 0.15s, transform 0.15s;
+}
+
+.pm-close:hover {
+  background: #333;
+  transform: scale(1.1);
+}
+
+/* Scroll container: independent from page scroll */
+.pm-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* iOS momentum scroll */
+  overscroll-behavior: contain;      /* don't propagate to page */
+  flex: 1;
+  min-height: 0; /* critical for flex children to scroll */
+  /* Hide scrollbar visually, keep scroll functionality */
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE/Edge */
+}
+
+.pm-scroll::-webkit-scrollbar {
+  display: none;                /* Chrome/Safari/Opera */
+}
+
+/* The actual polaroid frame inside scroll area */
+.pm-polaroid {
+  padding: 14px 14px 28px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pm-photo-frame {
+  width: 100%;
+  border-radius: 2px;
+  overflow: hidden;
+  background: #e8e4de;
+}
+
+.pm-photo {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+/* Caption area: inherits polaroid handwriting feel */
+.pm-caption-area {
+  padding: 16px 4px 8px 4px;
+}
+
+.pm-caption-text {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: #2a2420;
+  white-space: pre-wrap; /* Preserve newlines for long captions */
+  margin: 0;
+}

@@ -140,8 +140,8 @@ function useCameraPadding(): Padding {
       setPad(w >= 768
         // Desktop: photos cover right 45% → offset camera into left half
         ? { top: 0, right: Math.round(w * 0.45), bottom: 0, left: 0 }
-        // Mobile: photos cover bottom 48% → offset camera into top half
-        : { top: 0, right: 0, bottom: Math.round(h * 0.48), left: 0 }
+        // Mobile: photos + info cover bottom 55% → offset camera into top 45%
+        : { top: 0, right: 0, bottom: Math.round(h * 0.55), left: 0 }
       );
     }
     update();

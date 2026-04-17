@@ -59,11 +59,14 @@ export function useScrollSlide({
   // Interpolates smoothly: 0 (tilt on entry) -> 1 (straight to read) -> 2 (messy rest tilt)
   const childRotate = useTransform(reveal, [0, 1, 2], [revealRotateStart, 0, baseRotate]);
 
+  const pe = useTransform(reveal, r => r > 0.1 ? 'auto' : 'none') as MotionValue<any>;
+
   return {
     outerStyle: {
       transform: outerTransform,
       opacity,
       willChange: 'transform, opacity',
+      pointerEvents: pe,
     },
     innerStyle: {
       x: baseX,
@@ -71,6 +74,6 @@ export function useScrollSlide({
       rotate: childRotate, 
       scale: baseScale,
     },
-    pointerEvents: useTransform(reveal, r => r > 0.1 ? 'auto' : 'none') as MotionValue<any>,
+    pointerEvents: pe,
   };
 }

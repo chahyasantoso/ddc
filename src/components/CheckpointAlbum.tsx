@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { motion, useTransform, type MotionValue } from 'framer-motion';
 import { useCheckpointAlbumAnimation, type CheckpointAlbumProps } from '../hooks/useCheckpointAlbumAnimation';
 import { SCROLL_CONFIG, getCheckpointStartVH } from '../lib/scrollUtils';
 import { CheckpointInfoCard } from './CheckpointInfoCard';
 import { PhotoCard } from './PhotoCard';
+import { PhotoModal } from './PhotoModal';
 import { ScrollSlide } from './ScrollSlide';
+import type { Photo } from '../lib/types.client';
 
 // ── Direction & Rotation lookups for photos ───────────────────────────────────
 // Deterministic (no runtime randomness) to avoid hydration mismatches.
@@ -33,6 +36,9 @@ function getRotation(cpIndex: number, photoIndex: number) {
 export function CheckpointAlbum(props: CheckpointAlbumProps) {
   const { cp, checkpoints, i, total, smoothVH } = props;
 
+  // Modal state: which photo is open (null = closed)
+  const [activeModal, setActiveModal] = useState<{ photo: Photo; rotate: number } | null>(null);
+
   // 1. Get the behavior/animations from our custom hook
   const { groupY, gatedReveal, infoY } = useCheckpointAlbumAnimation(props);
 
@@ -58,7 +64,7 @@ export function CheckpointAlbum(props: CheckpointAlbumProps) {
     >
       {/* ── Album Photos Stack ── */}
       {cp.photos.length > 0 && (
-        <div className="photo-stack-wrapper">
+        <div className="photo-stack-wrapper" style={{ pointerEvents: 'auto' }}>
           <div className="ps-deck">
             {cp.photos.map((photo, photoIdx) => (
               <PhotoSlideInstance
@@ -70,6 +76,7 @@ export function CheckpointAlbum(props: CheckpointAlbumProps) {
                 startVH={startVH}
                 smoothVH={smoothVH}
                 checkpointReveal={gatedReveal}
+                onOpen={(rotate) => setActiveModal({ photo, rotate })}
               />
             ))}
           </div>
@@ -96,6 +103,12 @@ export function CheckpointAlbum(props: CheckpointAlbumProps) {
           <CheckpointInfoCard checkpoint={cp} index={i} total={total} />
         </motion.div>
       </motion.div>
+      {/* ── Photo Modal (rendered outside sticky/z-index layer) ── */}
+      <PhotoModal
+        photo={activeModal?.photo ?? null}
+        rotate={activeModal?.rotate ?? 0}
+        onClose={() => setActiveModal(null)}
+      />
     </motion.div>
   );
 }
@@ -110,6 +123,7 @@ interface PhotoSlideInstanceProps {
   startVH: number;
   smoothVH: MotionValue<number>;
   checkpointReveal: MotionValue<number>;
+  onOpen: (rotate: number) => void;
 }
 
 function PhotoSlideInstance({
@@ -119,7 +133,8 @@ function PhotoSlideInstance({
   index,
   startVH,
   smoothVH,
-  checkpointReveal
+  checkpointReveal,
+  onOpen,
 }: PhotoSlideInstanceProps) {
   const { SLICE_VH } = SCROLL_CONFIG;
 
@@ -170,7 +185,11 @@ function PhotoSlideInstance({
       className="ps-card"
       zIndex={photoIdx + 1}
     >
-      <div className="ps-peek-face">
+      <div
+        className="ps-peek-face"
+        onClick={() => onOpen(rotate)}
+        style={{ cursor: 'pointer' }}
+      >
         <PhotoCard
           photo={photo}
           showFooter
