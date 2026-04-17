@@ -1,13 +1,9 @@
 name = "ddc-travel-journal-cs"
 compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "ddc-journal"
 database_id = "6b7a54a1-08d8-492b-a582-10c94968f4fd"
-
-[[routes]]
-pattern = "ddc.santoso.web.id"
-custom_domain = true
-
