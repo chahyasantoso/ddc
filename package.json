@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && node scripts/fix-wrangler.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "db:setup": "wrangler d1 execute ddc-journal --local --file=./db/schema.sql",
@@ -16,7 +16,7 @@
     "db:deploy": "wrangler d1 execute ddc-journal --remote --file=./db/schema.sql"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^13.1.8",
+    "@astrojs/cloudflare": "^13.1.10",
     "@astrojs/react": "^5.0.3",
     "@tailwindcss/vite": "^4.2.2",
     "@types/better-sqlite3": "^7.6.13",
