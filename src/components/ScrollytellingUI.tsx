@@ -131,7 +131,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
               borderRadius: mapBorderRadius,
               overflow: 'hidden',
               transformOrigin: 'center',
-              backgroundColor: '#064e3b', // DEBUG GREEN
+              backgroundColor: '#0f0e0d',
               pointerEvents: 'none',
             }}
           >

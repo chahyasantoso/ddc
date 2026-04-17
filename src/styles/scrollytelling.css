@@ -21,11 +21,10 @@
   top: 0;
   height: 100vh;
   /* fallback */
-  height: 100lvh;
-  /* large viewport height — stable, ignores URL bar transitions */
+  height: 100dvh;
   width: 100%;
   overflow: hidden;
-  /* prevents Android URL bar resize from breaking sticky */
+  /* must be hidden on mobile */
 }
 
 @media (min-width: 768px) {
