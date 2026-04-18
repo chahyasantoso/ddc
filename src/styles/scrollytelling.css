@@ -15,7 +15,14 @@
          Framer Motion animated values (scale, y, opacity) MUST stay inline.
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* ── Sticky viewport layer ────────────────────────────────────────────────── */
+/* ── Container & Sticky Viewport layers ─────────────────────────────────────── */
+.native-scrolly-container {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .sticky-viewport {
   position: sticky;
   top: 0;
@@ -23,14 +30,18 @@
   /* fallback */
   height: 100dvh;
   width: 100%;
-  overflow: hidden;
-  /* must be hidden on mobile */
 }
 
-@media (min-width: 768px) {
-  .sticky-viewport {
-    overflow: visible;
-  }
+.sv-map {
+  grid-area: 1 / 1;
+  overflow: clip;
+}
+
+.sv-photos {
+  grid-area: 1 / 1;
+  overflow: visible;
+  pointer-events: none;
+  contain: size layout;
 }
 
 .map-canvas-layer {
@@ -130,6 +141,7 @@
   left: 0;
   right: 0;
   height: 48vh;
+  pointer-events: auto;
 }
 
 @media (min-width: 768px) {

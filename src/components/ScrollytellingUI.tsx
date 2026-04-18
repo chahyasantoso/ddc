@@ -87,7 +87,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
     <div
       ref={containerRef}
       className="native-scrolly-container"
-      style={{ height: `${containerHeightVH}vh`, position: 'relative', zIndex: 5 }}
+      style={{ height: `${containerHeightVH}dvh` }}
     >
 
       {/* INVISIBLE SNAP ANCHORS: Aligns browser scroll with the arrival of EACH photo! */}
@@ -117,7 +117,8 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
         />
       ))}
 
-      <div className="sticky-viewport">
+      {/* MAP STICKY LAYER (Strictly clipped to avoid mobile Android bug) */}
+      <div className="sticky-viewport sv-map">
 
         {/* Interactive Map Layer */}
         {/* pointerEvents: 'none' on the wrapper lets photo clicks pass through.   */}
@@ -145,7 +146,10 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
             </div>
           </motion.div>
         )}
+      </div>
 
+      {/* PHOTOS STICKY LAYER (Visible overflow so photos can fly) */}
+      <div className="sticky-viewport sv-photos">
         {/* PHOTO STACKS & INFO CARDS */}
         <div className="floating-photos-zone">
           {checkpoints.length > 0 ? (
