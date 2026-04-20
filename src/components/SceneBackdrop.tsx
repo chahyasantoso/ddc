@@ -40,10 +40,10 @@ export function SceneBackdrop({
   const parallaxTranslateY = useTransform(parallaxY, (v) => `${v}vh`);
 
   const parallaxScale = useTransform(smoothVH, (vh) => {
-    if (vh < entryStartVH) return 1.15;
+    if (vh < entryStartVH) return 1.0;
     const totalRange = exitStartVH - entryStartVH;
     const progress = Math.min(1, Math.max(0, (vh - entryStartVH) / totalRange));
-    return 1.15 - (progress * 0.15);
+    return 1.0 + (progress * 0.15); // 1.0 -> 1.15
   });
 
   return (
