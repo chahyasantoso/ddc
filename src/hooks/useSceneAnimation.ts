@@ -1,4 +1,4 @@
-import { useTransform, type MotionValue } from 'framer-motion';
+import { type MotionValue } from 'framer-motion';
 import { SCROLL_CONFIG, getCheckpointStartVH, sliceCount, type ScrollableCheckpoint } from '../lib/scrollUtils';
 import type { Checkpoint } from '../lib/types.client';
 
@@ -20,12 +20,10 @@ export interface SceneRange {
   exitEndVH: number;
 }
 
-export function useSceneAnimation({ checkpoints, scrollables, smoothVH }: UseSceneAnimationProps) {
+export function useSceneAnimation({ checkpoints, scrollables }: UseSceneAnimationProps) {
   const { SLICE_VH } = SCROLL_CONFIG;
 
   const sceneRanges: SceneRange[] = [];
-  // We'll track the global min map displacement ranges
-  // Array of [startVH, endVH] where the map should be fully displaced
   const mapDisplacementRanges: { start: number; end: number }[] = [];
 
   checkpoints.forEach((cp, i) => {
@@ -33,27 +31,23 @@ export function useSceneAnimation({ checkpoints, scrollables, smoothVH }: UseSce
     const totalSlices = sliceCount(scrollables[i], i);
     const endVH = startVH + totalSlices * SLICE_VH;
 
-    // Filter out only the backdrops, but keep their absolute index
     const backdrops = (cp.photos || [])
       .map((photo, index) => ({ photo, index }))
       .filter((item) => item.photo.is_backdrop === 1);
 
     if (backdrops.length === 0) return;
 
-    // The map slides down when the FIRST backdrop enters
+    // Map must be displaced entirely while ANY backdrop is active
     const firstBackdropEntryStartVH = startVH + (backdrops[0].index - (i === 0 ? 1 : 0)) * SLICE_VH;
-    // Map stays completely displaced until the checkpoint ends
     mapDisplacementRanges.push({
       start: firstBackdropEntryStartVH,
       end: endVH,
     });
 
     backdrops.forEach((b, idx) => {
-      // Entry matches its absolute timeline index
       const entryStartVH = startVH + (b.index - (i === 0 ? 1 : 0)) * SLICE_VH;
       const entryEndVH = entryStartVH + SLICE_VH;
 
-      // This backdrop remains active as the background until the NEXT backdrop arrives (or checkpoint ends)
       const nextBackdrop = backdrops[idx + 1];
       const exitStartVH = nextBackdrop
         ? startVH + (nextBackdrop.index - (i === 0 ? 1 : 0)) * SLICE_VH
@@ -64,7 +58,7 @@ export function useSceneAnimation({ checkpoints, scrollables, smoothVH }: UseSce
         cp,
         i,
         imageUrl: b.photo.photo_url,
-        imageIndex: b.index, // Absolute index ensures it mounts exactly once and stays keyed
+        imageIndex: b.index,
         startVH,
         entryStartVH,
         entryEndVH,
@@ -74,26 +68,5 @@ export function useSceneAnimation({ checkpoints, scrollables, smoothVH }: UseSce
     });
   });
 
-  // Calculate map translateY directly to control entry/exit direction
-  const mapTranslateY = useTransform(smoothVH, (vh) => {
-    for (const range of mapDisplacementRanges) {
-      // Entry: Map slides DOWN out of view (0vh -> 100vh)
-      if (vh >= range.start && vh < range.start + SLICE_VH) {
-        const t = (vh - range.start) / SLICE_VH;
-        return `${t * 100}vh`;
-      }
-      // Active: Map is off-screen. Teleport it to the top (-100vh) so it's ready to slide down.
-      if (vh >= range.start + SLICE_VH && vh < range.end) {
-        return '-100vh';
-      }
-      // Exit: Map slides DOWN from top back into view (-100vh -> 0vh)
-      if (vh >= range.end && vh < range.end + SLICE_VH) {
-        const t = (vh - range.end) / SLICE_VH;
-        return `${-100 + t * 100}vh`;
-      }
-    }
-    return '0vh'; // Default visible
-  });
-
-  return { mapTranslateY, sceneRanges };
+  return { mapDisplacementRanges, sceneRanges };
 }

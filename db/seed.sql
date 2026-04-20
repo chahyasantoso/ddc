@@ -9,23 +9,22 @@ INSERT INTO checkpoints (location_name, lat, lng, description, scene_image, crea
   ('Purwokerto', -7.4245, 109.2302, 'Tiba di Purwokerto sore hari. Udara sejuk kota pensiunan ini, disambut hangatnya mendoan dan kopi hitam. Baturraden memanggil dari kejauhan.', NULL, '2026-04-12 16:00:00');
 -- NOTE: scene_image is now NULL for all checkpoints — it's derived from photos with is_backdrop=1
 
--- Photos for Surabaya (checkpoint 1) — first photo is a backdrop
+-- Photos for Surabaya (checkpoint 1) — no backdrop
 INSERT INTO photos (checkpoint_id, photo_url, caption, "order", is_backdrop) VALUES
-  (1, '/uploads/seed/sby-1.jpg', 'Gate keberangkatan. Motor udah siap, carrier penuh, GPS nyala.', 0, 1),
+  (1, '/uploads/seed/sby-1.jpg', 'Gate keberangkatan. Motor udah siap, carrier penuh, GPS nyala.', 0, 0),
   (1, '/uploads/seed/sby-2.jpg', 'Jembatan Suramadu dari kejauhan sebelum aku belok selatan. Pamit dulu sama laut.', 1, 0);
 
--- Photos for Mojokerto (checkpoint 2) — no backdrop
+-- Photos for Mojokerto (checkpoint 2)
 INSERT INTO photos (checkpoint_id, photo_url, caption, "order", is_backdrop) VALUES
   (2, '/uploads/seed/mojo-1.jpg', 'Warung pecel Bu Sari. Nasi pecel + tempe goreng = Rp 8.000. Surga harga.', 0, 0),
-  (2, '/uploads/seed/mojo-2.jpg', 'Candi Trowulan keliatan dari jalan raya. Sejarah terhampar di pinggir aspal.', 1, 0),
+  (2, '/uploads/seed/mojo-2.jpg', 'Candi Trowulan keliatan dari jalan raya. Sejarah terhampar di pinggir aspal.', 1, 1),
   (2, '/uploads/seed/mojo-3.jpg', 'Motor diparkir di bawah pohon rindang. Bensin full, semangat juga full.', 2, 0);
 
--- Photos for Malang (checkpoint 3)
--- malang-3.jpg (Gunung Semeru view) is flagged as backdrop → activates scene transition for Malang
+-- Photos for Malang (checkpoint 3) — no backdrop
 INSERT INTO photos (checkpoint_id, photo_url, caption, "order", is_backdrop) VALUES
   (3, '/uploads/seed/malang-1.jpg', 'Masuk Malang lewat jalur belakang. Kabut turun, suhu turun 10 derajat langsung.', 0, 0),
   (3, '/uploads/seed/malang-2.jpg', 'Kafe kecil di jalan Ijen. Kopi susu Malang beda—ada manis-manis tersendiri.', 1, 0),
-  (3, '/uploads/seed/malang-3.jpg', 'View Gunung Semeru dari ketinggian. Ini yang bikin capek perjalanan terbayar lunas.', 2, 1);
+  (3, '/uploads/seed/malang-3.jpg', 'View Gunung Semeru dari ketinggian. Ini yang bikin capek perjalanan terbayar lunas.', 2, 0);
 -- ↑ is_backdrop=1: malang-3.jpg becomes the cinematic backdrop for Malang
 
 -- Photos for Purwokerto (checkpoint 4)

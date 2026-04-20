@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react';
-import { useScroll, useTransform, motion } from 'framer-motion';
+import { useScroll, useTransform, motion, useAnimation, useMotionValueEvent } from 'framer-motion';
 
 import { InteractiveMap } from './InteractiveMap';
 import { SceneBackdrop } from './SceneBackdrop';
@@ -33,6 +33,7 @@ interface Props {
 export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapIsReady, setMapIsReady] = React.useState(false);
+  const mapControls = useAnimation();
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -64,10 +65,45 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
   useActiveCheckpoint(smoothVH, checkpoints);
 
   // Scene animation: computes map displacement and scene ranges for parallax backgrounds
-  const { mapTranslateY, sceneRanges } = useSceneAnimation({
+  const { mapDisplacementRanges, sceneRanges } = useSceneAnimation({
     checkpoints,
     scrollables,
     smoothVH,
+  });
+
+  const prevVH = useRef(0);
+
+  // Sync prevVH on mount
+  React.useEffect(() => {
+    prevVH.current = smoothVH.get();
+  }, [smoothVH]);
+
+  // Use triggered animation rather than perfectly matched scroll frames
+  useMotionValueEvent(smoothVH, 'change', (vh) => {
+    const pVH = prevVH.current;
+    
+    for (const range of mapDisplacementRanges) {
+      // Crossing 'start' downwards -> map exits down
+      if (pVH < range.start && vh >= range.start) {
+        mapControls.start({ y: '100vh', transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
+      }
+      // Crossing 'start' upwards -> map enters from bottom (100vh -> 0)
+      else if (pVH >= range.start && vh < range.start) {
+        mapControls.set({ y: '100vh' }); 
+        mapControls.start({ y: '0vh', transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
+      }
+      // Crossing 'end' downwards -> map enters from top (-100vh -> 0)
+      else if (pVH < range.end && vh >= range.end) {
+        mapControls.set({ y: '-100vh' }); 
+        mapControls.start({ y: '0vh', transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
+      }
+      // Crossing 'end' upwards -> map exits up (0 -> -100vh)
+      else if (pVH >= range.end && vh < range.end) {
+        mapControls.start({ y: '-100vh', transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
+      }
+    }
+
+    prevVH.current = vh;
   });
 
   const handleJump = useCallback(
@@ -142,8 +178,8 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
               transformOrigin: 'center',
               backgroundColor: '#0f0e0d',
               pointerEvents: 'none',
-              y: mapTranslateY,
             }}
+            animate={mapControls}
           >
             <div className="map-canvas-layer">
               <InteractiveMap
