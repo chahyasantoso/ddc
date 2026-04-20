@@ -31,6 +31,8 @@ export interface ScrollSlideProps extends Omit<HTMLMotionProps<'div'>, 'animate'
   baseOpacity?: number;
   /** Z-index of the slide deck wrapper. Defaults to 0. */
   zIndex?    : number;
+  /** Multiplier for the reveal displacement (Parallax). */
+  parallaxFactor?: number;
 
   children   : ReactNode;
 }
@@ -48,6 +50,7 @@ export function ScrollSlide({
   baseScale,
   baseOpacity,
   zIndex = 0,
+  parallaxFactor,
   children,
   ...rest
 }: ScrollSlideProps) {
@@ -64,6 +67,7 @@ export function ScrollSlide({
     baseRotate,
     baseScale,
     baseOpacity,
+    parallaxFactor,
   });
 
   return (

@@ -34,6 +34,7 @@ interface PhotoSlideProps {
   sceneOffset: number;
   smoothVH: MotionValue<number>;
   checkpointReveal: MotionValue<number>;
+  parallaxFactor?: number;
   onOpen: (rotate: number) => void;
 }
 
@@ -46,6 +47,7 @@ export function PhotoSlide({
   sceneOffset,
   smoothVH,
   checkpointReveal,
+  parallaxFactor,
   onOpen,
 }: PhotoSlideProps) {
   const { SLICE_VH } = SCROLL_CONFIG;
@@ -108,6 +110,7 @@ export function PhotoSlide({
       revealScaleStart={0.88}
       revealRotateStart={rotate}
       baseRotate={rotate}
+      parallaxFactor={parallaxFactor}
       className="ps-card"
       zIndex={photoIdx + 1}
     >

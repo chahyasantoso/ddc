@@ -6,6 +6,7 @@ import type { Photo } from '../lib/types.client';
 import { InfoCard } from './InfoCard';
 import { PhotoModal } from './PhotoModal';
 import { PhotoSlide } from './PhotoSlide';
+import { ScrollSlide } from './ScrollSlide';
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ export function PhotoAlbum(props: PhotoAlbumProps) {
                 sceneOffset={cp.scene_image ? 1 : 0}
                 smoothVH={smoothVH}
                 checkpointReveal={gatedReveal}
+                parallaxFactor={0.85 + (photoIdx * 0.1)}
                 onOpen={(rotate) => setActiveModal({ photo, rotate })}
               />
             ))}
@@ -62,25 +64,19 @@ export function PhotoAlbum(props: PhotoAlbumProps) {
       )}
 
       {/* ── Album Info Card ── */}
-      <motion.div
-        style={{
-          position: 'absolute',
-          opacity: gatedReveal,
-          y: infoY,
-          zIndex: 50,
-          willChange: 'opacity, transform',
-          pointerEvents: 'none',
-        }}
-        className="checkpoint-info-zone pointer-events-none"
-      >
-        <motion.div
-          style={{
-            pointerEvents: useTransform(gatedReveal, (r) => (r > 0.5 ? 'auto' : 'none')) as any,
-          }}
+      <div className="checkpoint-info-zone pointer-events-none">
+        <ScrollSlide
+          reveal={gatedReveal}
+          direction="bottom"
+          parallaxFactor={1.4}
+          revealScaleStart={1.1}
+          baseScale={1}
+          zIndex={50}
+          className="info-card-parallax-wrapper"
         >
           <InfoCard checkpoint={cp} index={i} total={total} />
-        </motion.div>
-      </motion.div>
+        </ScrollSlide>
+      </div>
       {/* ── Photo Modal (rendered outside sticky/z-index layer) ── */}
       <PhotoModal
         photo={activeModal?.photo ?? null}

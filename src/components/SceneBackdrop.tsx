@@ -26,7 +26,7 @@ export function SceneBackdrop({
     return 'hidden';
   });
 
-  // Scene slide: enters from top (-100vh → 0), exits upward (0 → -100vh)
+  // Background Scene slide: enters from top (-100vh → 0), exits upward (0 → -100vh)
   const sceneY = useTransform(smoothVH, (vh) => {
     if (vh < entryStartVH) return '-100vh';
     if (vh < entryEndVH) {
@@ -50,12 +50,12 @@ export function SceneBackdrop({
     return 0;
   });
 
-  // Dramatic parallax: image shifts 40vh over the scene's lifetime
+  // Dramatic parallax: image shifts 30vh over the scene's lifetime
   const parallaxY = useTransform(smoothVH, (vh) => {
     if (vh < entryStartVH) return 0;
     const totalRange = exitEndVH - entryStartVH;
     const progress = Math.min(1, (vh - entryStartVH) / totalRange);
-    return -progress * 40; // vh units
+    return -progress * 30; // vh units
   });
 
   const parallaxTranslateY = useTransform(parallaxY, (v) => `${v}vh`);
@@ -65,13 +65,13 @@ export function SceneBackdrop({
       style={{
         position: 'absolute',
         inset: 0,
-        y: sceneY,
         opacity: sceneOpacity,
         visibility: visibility as any,
         overflow: 'hidden',
         willChange: 'transform, opacity',
       }}
     >
+      {/* ── Background Layer ── */}
       <motion.img
         src={imageUrl}
         alt=""
@@ -81,7 +81,8 @@ export function SceneBackdrop({
           width: '110vw',
           height: '140vh',
           objectFit: 'cover',
-          y: parallaxTranslateY,
+          y: sceneY,
+          translateY: parallaxTranslateY,
           willChange: 'transform',
         }}
       />
@@ -89,7 +90,7 @@ export function SceneBackdrop({
       <div style={{
         position: 'absolute',
         inset: 0,
-        background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.3) 100%)',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.3) 100%)',
       }} />
     </motion.div>
   );

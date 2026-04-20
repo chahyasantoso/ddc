@@ -9,6 +9,7 @@ import '../styles/footer.css';
 import '../styles/scrollytelling.css';
 import '../styles/map.css';
 import '../styles/modal.css';
+import '../styles/splash.css';
 import 'lenis/dist/lenis.css';
 import { env } from 'cloudflare:workers';
 
@@ -33,10 +34,18 @@ try {
     .all<Photo>();
 
   // Assemble CheckpointWithPhotos (full data for UI island)
-  checkpoints = rawCheckpoints.map((cp: Checkpoint) => ({
-    ...cp,
-    photos: rawPhotos.filter((p: Photo) => p.checkpoint_id === cp.id),
-  }));
+  checkpoints = rawCheckpoints.map((cp: Checkpoint) => {
+    const allPhotos = rawPhotos.filter((p: Photo) => p.checkpoint_id === cp.id);
+    // Backdrop photos render as full-screen scene backgrounds, not polaroid cards
+    const backdropPhoto = allPhotos.find((p: Photo) => p.is_backdrop === 1);
+    const cardPhotos = allPhotos.filter((p: Photo) => p.is_backdrop !== 1);
+    return {
+      ...cp,
+      photos: cardPhotos,
+      // Derive scene_image from the backdrop photo; fall back to the checkpoint column
+      scene_image: backdropPhoto?.photo_url ?? cp.scene_image ?? null,
+    };
+  });
 
   // Slim list for map island (smaller prop payload)
   mapCheckpoints = checkpoints.map(({ id, location_name, lat, lng }) => ({
@@ -69,6 +78,21 @@ try {
   </head>
 
   <body>
+    <!-- ── Premium Splash Screen ─────────────────────────────────────────── -->
+    <div id="splash-screen">
+      <div class="splash-content">
+        <div class="splash-logo-container">
+          <div class="splash-glow"></div>
+          <div class="splash-moto">🏍️</div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center">
+          <h1 class="splash-title">DDC</h1>
+          <p class="splash-tagline">Initializing Journey...</p>
+        </div>
+        <div class="splash-loader"></div>
+      </div>
+    </div>
+
     <HeroSection client:load />
 
     <!-- HUD: top bar with branding -->
@@ -133,6 +157,25 @@ try {
 
       // Export globally so React islands can trigger jumps
       (window as any).__lenis = lenis;
+
+      // Handle Splash Screen Removal
+      window.addEventListener('ddc:ready', () => {
+        const splash = document.getElementById('splash-screen');
+        if (splash) {
+          splash.classList.add('fade-out');
+          setTimeout(() => splash.remove(), 1000);
+        }
+      });
+
+      // Safety fallback: if the map fails to load within 5s, clear the splash anyway
+      setTimeout(() => {
+        const splash = document.getElementById('splash-screen');
+        if (splash && !splash.classList.contains('fade-out')) {
+          console.warn('Splash safety timeout triggered.');
+          splash.classList.add('fade-out');
+          setTimeout(() => splash.remove(), 1000);
+        }
+      }, 5000);
     </script>
   </body>
 </html>

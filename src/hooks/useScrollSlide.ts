@@ -21,6 +21,8 @@ interface UseScrollSlideOptions {
   baseRotate?: number;
   baseScale?: number;
   baseOpacity?: number;
+  /** Multiplier for the reveal displacement to create depth (Parallax). Defaults to 1. */
+  parallaxFactor?: number;
 }
 
 export function useScrollSlide({
@@ -35,6 +37,7 @@ export function useScrollSlide({
   baseRotate = 0,
   baseScale = 1,
   baseOpacity = 1,
+  parallaxFactor = 1,
 }: UseScrollSlideOptions) {
   // Clamp reveal to 1 for position/scale calculations, so it doesn't overshoot when 'reveal' hits 2
   const clampedReveal = useTransform(reveal, r => Math.min(1, r));
@@ -48,12 +51,13 @@ export function useScrollSlide({
   const dy = revealDy ?? preset.y;
 
   // ── Outer Layer: Handles the "Slide Arrival" ─────────────────────────────────
-  const translateX = useTransform(t, tVal => dx * tVal);
-  const translateY = useTransform(t, tVal => dy * tVal);
+  const translateX = useTransform(t, tVal => dx * tVal * parallaxFactor);
+  const translateY = useTransform(t, tVal => dy * tVal * parallaxFactor);
+
   const scale = useTransform(clampedReveal, r => revealScaleStart + (1 - revealScaleStart) * r);
   const opacity = useTransform(clampedReveal, r => Math.max(0, r * baseOpacity)); // Drops to exactly 0
   
-  const outerTransform = useMotionTemplate`translate(${translateX}px, ${translateY}px) scale(${scale})`;
+  const outerTransform = useMotionTemplate`translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`;
 
   // ── Inner Layer: Handles the "Identity & Spiraling" ──────────────────────────
   // Interpolates smoothly: 0 (tilt on entry) -> 1 (straight to read) -> 2 (messy rest tilt)

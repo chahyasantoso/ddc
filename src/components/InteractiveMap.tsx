@@ -19,12 +19,13 @@ interface InteractiveMapProps {
   scrollables: any[];
   scrollProgress?: MotionValue<number>;
   onCheckpointClick?: (index: number) => void;
+  onMapLoaded?: () => void;
 }
 
 const ZOOM = 7.5;
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function InteractiveMap({ checkpoints, scrollables, scrollProgress, onCheckpointClick }: InteractiveMapProps) {
+export function InteractiveMap({ checkpoints, scrollables, scrollProgress, onCheckpointClick, onMapLoaded }: InteractiveMapProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const cameraPad  = useCameraPadding();
 
@@ -81,7 +82,10 @@ export function InteractiveMap({ checkpoints, scrollables, scrollProgress, onChe
         // Camera padding: keeps motorcycle in left (desktop) or top (mobile) portion
         padding={cameraPad}
         mapStyle={MAP_STYLE as never}
-        onLoad={() => setMapLoaded(true)}
+        onLoad={() => {
+          setMapLoaded(true);
+          onMapLoaded?.();
+        }}
         attributionControl={false}
         dragPan={false}
         scrollZoom={false}

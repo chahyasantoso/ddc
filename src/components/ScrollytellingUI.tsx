@@ -32,6 +32,7 @@ interface Props {
  */
 export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [mapIsReady, setMapIsReady] = React.useState(false);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -78,6 +79,17 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
     },
     [smoothVH, scrollables],
   );
+
+  // Notify the splash screen once we are visually and mathematically ready
+  React.useEffect(() => {
+    if (mapIsReady) {
+      // Small buffer for React hydration to settle and initial photo decoding
+      const timer = setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('ddc:ready'));
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [mapIsReady]);
 
   return (
     <div
@@ -139,6 +151,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
                 scrollables={scrollables}
                 scrollProgress={scrollYProgress}
                 onCheckpointClick={(idx) => handleJump(idx)}
+                onMapLoaded={() => setMapIsReady(true)}
               />
             </div>
           </motion.div>

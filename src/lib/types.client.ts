@@ -7,6 +7,7 @@ export interface Photo {
   photo_url    : string;
   caption      : string;
   order        : number;
+  is_backdrop  : number;
 }
 
 export interface Checkpoint {
