@@ -60,12 +60,21 @@ export function SceneBackdrop({
 
   const parallaxTranslateY = useTransform(parallaxY, (v) => `${v}vh`);
 
+  // Breathing parallax: slowly zoom out over the scene's lifetime
+  const parallaxScale = useTransform(smoothVH, (vh) => {
+    if (vh < entryStartVH) return 1.15;
+    const totalRange = exitEndVH - entryStartVH;
+    const progress = Math.min(1, Math.max(0, (vh - entryStartVH) / totalRange));
+    return 1.15 - (progress * 0.15); // 1.15 -> 1.0
+  });
+
   return (
     <motion.div
       style={{
         position: 'absolute',
         inset: 0,
         opacity: sceneOpacity,
+        y: sceneY, // Move the entire container (image + gradient)
         visibility: visibility as any,
         overflow: 'hidden',
         willChange: 'transform, opacity',
@@ -81,8 +90,8 @@ export function SceneBackdrop({
           width: '110vw',
           height: '140vh',
           objectFit: 'cover',
-          y: sceneY,
-          translateY: parallaxTranslateY,
+          translateY: parallaxTranslateY, // Parallax drift inside container
+          scale: parallaxScale,           // Slow zoom out
           willChange: 'transform',
         }}
       />

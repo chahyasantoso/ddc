@@ -9,9 +9,9 @@ INSERT INTO checkpoints (location_name, lat, lng, description, scene_image, crea
   ('Purwokerto', -7.4245, 109.2302, 'Tiba di Purwokerto sore hari. Udara sejuk kota pensiunan ini, disambut hangatnya mendoan dan kopi hitam. Baturraden memanggil dari kejauhan.', NULL, '2026-04-12 16:00:00');
 -- NOTE: scene_image is now NULL for all checkpoints — it's derived from photos with is_backdrop=1
 
--- Photos for Surabaya (checkpoint 1) — no backdrop
+-- Photos for Surabaya (checkpoint 1) — first photo is a backdrop
 INSERT INTO photos (checkpoint_id, photo_url, caption, "order", is_backdrop) VALUES
-  (1, '/uploads/seed/sby-1.jpg', 'Gate keberangkatan. Motor udah siap, carrier penuh, GPS nyala.', 0, 0),
+  (1, '/uploads/seed/sby-1.jpg', 'Gate keberangkatan. Motor udah siap, carrier penuh, GPS nyala.', 0, 1),
   (1, '/uploads/seed/sby-2.jpg', 'Jembatan Suramadu dari kejauhan sebelum aku belok selatan. Pamit dulu sama laut.', 1, 0);
 
 -- Photos for Mojokerto (checkpoint 2) — no backdrop
