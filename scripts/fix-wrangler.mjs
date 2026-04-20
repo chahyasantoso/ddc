@@ -48,10 +48,15 @@ const proxyContent = `export { default } from './server/entry.mjs';\n`;
 writeFileSync(workerProxyPath, proxyContent);
 console.log('[fix-wrangler] ✓ Created _worker.js proxy at dist/_worker.js');
 
-// 3. Clean up .wrangler metadata folder to prevent Cloudflare build errors
+// 3. Clean up .wrangler metadata folder (except local database state) to prevent Cloudflare build errors
 if (existsSync(wranglerMetadataPath)) {
-  rmSync(wranglerMetadataPath, { recursive: true, force: true });
-  console.log('[fix-wrangler] ✓ Cleaned up .wrangler metadata folder');
+  const dirs = readdirSync(wranglerMetadataPath);
+  for (const dir of dirs) {
+    if (dir !== 'state') {
+      rmSync(join(wranglerMetadataPath, dir), { recursive: true, force: true });
+    }
+  }
+  console.log('[fix-wrangler] ✓ Cleaned up .wrangler metadata (kept local db state)');
 }
 
 // 4. Cleanup any generated wrangler.json files in the build output

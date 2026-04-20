@@ -9,6 +9,7 @@ import '../styles/footer.css';
 import '../styles/scrollytelling.css';
 import '../styles/map.css';
 import '../styles/modal.css';
+import 'lenis/dist/lenis.css';
 import { env } from 'cloudflare:workers';
 
 // Slim coord type for the map island (no photos = smaller JSON payload)
@@ -121,5 +122,17 @@ try {
       </div>
     </noscript>
 
+    <script>
+      import Lenis from 'lenis';
+
+      // Initialize Lenis at the global page level
+      const lenis = new Lenis({
+        lerp: 0.1,
+        autoRaf: true,
+      });
+
+      // Export globally so React islands can trigger jumps
+      (window as any).__lenis = lenis;
+    </script>
   </body>
 </html>

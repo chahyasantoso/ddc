@@ -11,7 +11,6 @@ import {
   sliceCount,
   triggerScrollyJump,
 } from '../lib/scrollUtils';
-import { useJumpableSpring } from '../hooks/useJumpableSpring';
 import { useActiveCheckpoint } from '../hooks/useActiveCheckpoint';
 import { CheckpointAlbum } from './CheckpointAlbum';
 
@@ -44,28 +43,17 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
     offset: ['start end', 'start start'],
   });
 
-  const smoothProgress = useJumpableSpring(scrollYProgress, {
-    stiffness: 100,
-    damping: 40,
-    restDelta: 0.001,
-  });
-
-  const smoothEntryProgress = useJumpableSpring(entryProgress, {
-    stiffness: 100,
-    damping: 40,
-    restDelta: 0.001,
-  });
-
   // Map scales up and border disappears as it enters
-  const mapScale = useTransform(smoothEntryProgress, [0, 1], [0.75, 1]);
-  const mapBorderRadius = useTransform(smoothEntryProgress, [0, 1], ['40px', '0px']);
+  // With Lenis, the global scroll is already smoothed, so we use the progress values directly
+  const mapScale = useTransform(entryProgress, [0, 1], [0.75, 1]);
+  const mapBorderRadius = useTransform(entryProgress, [0, 1], ['40px', '0px']);
 
   const totalVH = checkpoints.length > 0 ? getTotalVH(checkpoints) : 0;
   // Container height = total scroll budget + 100vh padding for last checkpoint settle
   const containerHeightVH = Math.max(100, totalVH + 100);
 
   // smoothVH: absolute scroll position in viewport-height units
-  const smoothVH = useTransform(smoothProgress, (p) =>
+  const smoothVH = useTransform(scrollYProgress, (p) =>
     Math.max(0, Math.min(1, p)) * totalVH,
   );
 
@@ -161,7 +149,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
                 i={i}
                 total={checkpoints.length}
                 smoothVH={smoothVH}
-                entryProgress={smoothEntryProgress}
+                entryProgress={entryProgress}
               />
             ))
           ) : (

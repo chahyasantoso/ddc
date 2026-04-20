@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMotionValueEvent, type MotionValue } from 'framer-motion';
 import Map, { Source, Layer, Marker, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useJumpableSpring } from '../hooks/useJumpableSpring';
+import { useScroll } from 'framer-motion';
 import { useCameraPadding } from '../hooks/useCameraPadding';
 import {
   getCameraFromProgress,
@@ -12,7 +12,6 @@ import {
   MAP_STYLE,
   type CheckpointCoord,
 } from '../lib/mapUtils';
-import { useScroll } from 'framer-motion';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface InteractiveMapProps {
@@ -48,13 +47,8 @@ export function InteractiveMap({ checkpoints, photoCounts, scrollProgress, onChe
 
   const fallbackScroll = useScroll(); // Automatically tracks global window layout scroll depth
   const scrollYProgress = scrollProgress || fallbackScroll.scrollYProgress;
-  const smoothProgress = useJumpableSpring(scrollYProgress, {
-    stiffness: 100,
-    damping: 40,
-    restDelta: 0.001
-  });
 
-  useMotionValueEvent(smoothProgress, "change", (progress) => {
+  useMotionValueEvent(scrollYProgress, "change", (progress) => {
     if (checkpoints.length < 2) return;
     const pos     = getCameraFromProgress(checkpoints, photoCounts, progress);
     const bearing = getMotoBearing(checkpoints, photoCounts, progress);

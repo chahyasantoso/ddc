@@ -109,7 +109,7 @@ export function getActiveCheckpointIndex(
 
 /**
  * Scrolls to a target checkpoint, either smoothly (sequential) or via
- * a pre-jump instant scroll to skip invisible sections (non-sequential).
+ * an instant teleport avoiding tracking intermediate points (non-sequential).
  */
 export function triggerScrollyJump(
   checkpoints: CheckpointLike[],
@@ -119,22 +119,12 @@ export function triggerScrollyJump(
   const el = document.getElementById(`checkpoint-snap-${targetIndex}`);
   if (!el) return;
 
-  if (isSequential) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const lenis = (window as any).__lenis;
+  if (lenis) {
+    // immediate: true = instant jump (no lerp), false = smooth scroll
+    lenis.scrollTo(el, { immediate: !isSequential });
   } else {
-    // Signal spring to bypass animation instantly
-    window.dispatchEvent(new CustomEvent('ddc:jump-state', { detail: { jumping: true } }));
-
-    const targetAbsoluteY = el.getBoundingClientRect().top + window.scrollY;
-    window.scrollTo({ top: targetAbsoluteY, behavior: 'instant' });
-
-    // Use double-RAF: first frame lets the instant scroll event fire and update
-    // scrollYProgress, second frame releases the spring so it resumes normally.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.dispatchEvent(new CustomEvent('ddc:jump-state', { detail: { jumping: false } }));
-      });
-    });
+    // Fallback if Lenis not loaded
+    el.scrollIntoView({ behavior: isSequential ? 'smooth' : 'instant', block: 'start' });
   }
 }
-
