@@ -26,7 +26,7 @@ export function SceneBackdrop({
     return 'hidden';
   });
 
-  // Background Scene slide: enters from top (-100vh → 0), exits upward (0 → -100vh)
+  // Background Scene slide: enters from top (-100vh → 0), exits downward (0 → 100vh)
   const sceneY = useTransform(smoothVH, (vh) => {
     if (vh < entryStartVH) return '-100vh';
     if (vh < entryEndVH) {
@@ -36,9 +36,9 @@ export function SceneBackdrop({
     if (vh < exitStartVH) return '0vh';
     if (vh < exitEndVH) {
       const t = (vh - exitStartVH) / SLICE_VH;
-      return `${-t * 100}vh`;
+      return `${t * 100}vh`;
     }
-    return '-100vh';
+    return '100vh';
   });
 
   // Opacity: fade in during entry, fade out during exit
