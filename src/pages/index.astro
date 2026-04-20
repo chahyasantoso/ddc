@@ -37,13 +37,17 @@ try {
   checkpoints = rawCheckpoints.map((cp: Checkpoint) => {
     const allPhotos = rawPhotos.filter((p: Photo) => p.checkpoint_id === cp.id);
     // Backdrop photos render as full-screen scene backgrounds, not polaroid cards
-    const backdropPhoto = allPhotos.find((p: Photo) => p.is_backdrop === 1);
+    const backdropPhotos = allPhotos
+      .filter((p: Photo) => p.is_backdrop === 1)
+      .sort((a: Photo, b: Photo) => a.order - b.order);
     const cardPhotos = allPhotos.filter((p: Photo) => p.is_backdrop !== 1);
+    const scene_images = backdropPhotos.map((p: Photo) => p.photo_url);
     return {
       ...cp,
       photos: cardPhotos,
-      // Derive scene_image from the backdrop photo; fall back to the checkpoint column
-      scene_image: backdropPhoto?.photo_url ?? cp.scene_image ?? null,
+      scene_images,
+      // scene_image stays as first backdrop for backward compat with DB column
+      scene_image: scene_images[0] ?? cp.scene_image ?? null,
     };
   });
 

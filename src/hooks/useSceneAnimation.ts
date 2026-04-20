@@ -11,6 +11,8 @@ interface UseSceneAnimationProps {
 export interface SceneRange {
   cp: Checkpoint;
   i: number;
+  imageUrl: string;
+  imageIndex: number;
   startVH: number;
   entryStartVH: number;
   entryEndVH: number;
@@ -21,26 +23,34 @@ export interface SceneRange {
 export function useSceneAnimation({ checkpoints, scrollables, smoothVH }: UseSceneAnimationProps) {
   const { SLICE_VH } = SCROLL_CONFIG;
 
-  // Find all scene checkpoints and their VH ranges
-  const sceneRanges: SceneRange[] = checkpoints
-    .map((cp, i) => {
-      if (!cp.scene_image) return null;
-      const startVH = getCheckpointStartVH(scrollables, i);
+  // Generate one SceneRange per backdrop image — each gets its own dedicated scroll slice
+  const sceneRanges: SceneRange[] = [];
+
+  checkpoints.forEach((cp, i) => {
+    const images = cp.scene_images?.length
+      ? cp.scene_images
+      : cp.scene_image ? [cp.scene_image] : [];
+
+    if (images.length === 0) return;
+
+    const startVH = getCheckpointStartVH(scrollables, i);
+
+    images.forEach((imageUrl, imgIdx) => {
+      // Each backdrop occupies its own slice window, stacked sequentially after the map pan slice
+      const entryStartVH = startVH + SLICE_VH + imgIdx * SLICE_VH;
+      const entryEndVH   = entryStartVH + SLICE_VH;
+
+      // This backdrop is "active" until the next one starts (or until album exit)
       const totalSlices = sliceCount(scrollables[i], i);
       const endVH = startVH + totalSlices * SLICE_VH;
-      
-      // Map panning happens at [startVH, startVH + SLICE_VH]
-      // Scene entry transition happens immediately after map arrives:
-      const entryStartVH = startVH + SLICE_VH;
-      const entryEndVH = startVH + SLICE_VH * 2;
-      
-      // Scene exit transition happens exactly when the photo album exits
-      const exitStartVH = endVH;
-      const exitEndVH = endVH + SLICE_VH;
-      
-      return { cp, i, startVH, entryStartVH, entryEndVH, exitStartVH, exitEndVH };
-    })
-    .filter((r): r is SceneRange => r !== null);
+      const exitStartVH = imgIdx < images.length - 1
+        ? entryEndVH // next backdrop starts immediately → this one exits
+        : endVH;     // last backdrop holds until the album is done
+      const exitEndVH = exitStartVH + SLICE_VH;
+
+      sceneRanges.push({ cp, i, imageUrl, imageIndex: imgIdx, startVH, entryStartVH, entryEndVH, exitStartVH, exitEndVH });
+    });
+  });
 
   // Compute a combined "map displacement" value:
   // 0 = map fully visible, 1 = map fully off-screen

@@ -52,7 +52,7 @@ export function PhotoAlbum(props: PhotoAlbumProps) {
                 totalPhotos={cp.photos.length}
                 index={i}
                 startVH={startVH}
-                sceneOffset={cp.scene_image ? 1 : 0}
+                sceneOffset={cp.scene_images?.length ?? (cp.scene_image ? 1 : 0)}
                 smoothVH={smoothVH}
                 checkpointReveal={gatedReveal}
                 parallaxFactor={0.85 + (photoIdx * 0.1)}

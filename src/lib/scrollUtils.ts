@@ -31,13 +31,17 @@ export const SCROLL_CONFIG = {
 
 export interface ScrollableCheckpoint {
   photoCount: number;
-  hasScene: boolean;
+  /** Number of backdrop images (0 = no scene). Each adds one dedicated scroll slice. */
+  sceneCount: number;
 }
 
 export function toScrollables(checkpoints: any[]): ScrollableCheckpoint[] {
   return checkpoints.map(cp => ({
     photoCount: cp.photoCount ?? (Array.isArray(cp.photos) ? cp.photos.length : 0),
-    hasScene: cp.hasScene ?? !!cp.scene_image,
+    sceneCount: cp.sceneCount ?? (
+      Array.isArray(cp.scene_images) ? cp.scene_images.length
+        : (cp.scene_image ? 1 : 0)
+    ),
   }));
 }
 
@@ -46,9 +50,8 @@ export function toScrollables(checkpoints: any[]): ScrollableCheckpoint[] {
 export function sliceCount(cp: ScrollableCheckpoint, idx?: number) {
   const c = cp.photoCount;
   let base = idx === 0 ? Math.max(1, c - 1) : Math.max(1, c);
-  // Scene checkpoints add 1 extra slice specifically for the background transition gap
-  // map pan + photo 0 happen concurrently before the gap.
-  if (cp.hasScene) base += 1;
+  // Each backdrop photo adds 1 dedicated scroll slice for its transition
+  base += cp.sceneCount;
   return base;
 }
 

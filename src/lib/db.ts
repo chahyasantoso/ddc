@@ -5,6 +5,7 @@ export interface Checkpoint {
   lat: number;
   lng: number;
   description: string | null;
+  /** Kept for backward compat with direct DB column; derive from photos where possible. */
   scene_image: string | null;
   created_at: string;
 }

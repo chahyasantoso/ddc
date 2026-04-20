@@ -162,8 +162,8 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
       <div className="sticky-viewport sv-scene">
         {sceneRanges.map((range) => (
           <SceneBackdrop
-            key={range.cp.id}
-            imageUrl={range.cp.scene_image!}
+            key={`${range.cp.id}-${range.imageIndex}`}
+            imageUrl={range.imageUrl}
             entryStartVH={range.entryStartVH}
             entryEndVH={range.entryEndVH}
             exitStartVH={range.exitStartVH}
