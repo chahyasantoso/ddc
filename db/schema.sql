@@ -10,6 +10,7 @@ CREATE TABLE checkpoints (
   lat REAL NOT NULL,
   lng REAL NOT NULL,
   description TEXT,
+  scene_image TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

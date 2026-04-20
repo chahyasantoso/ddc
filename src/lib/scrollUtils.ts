@@ -29,21 +29,31 @@ export const SCROLL_CONFIG = {
 
 // ── Checkpoint type (minimal shape needed by math helpers) ───────────────────
 
-export interface CheckpointLike {
-  photos: unknown[];
+export interface ScrollableCheckpoint {
+  photoCount: number;
+  hasScene: boolean;
+}
+
+export function toScrollables(checkpoints: any[]): ScrollableCheckpoint[] {
+  return checkpoints.map(cp => ({
+    photoCount: cp.photoCount ?? (Array.isArray(cp.photos) ? cp.photos.length : 0),
+    hasScene: cp.hasScene ?? !!cp.scene_image,
+  }));
 }
 
 // ── Slice-count helpers ───────────────────────────────────────────────────────
 
-/** Number of scroll slices consumed by checkpoint k. */
-export function sliceCount(cp: CheckpointLike, idx?: number) {
-  const c = cp.photos.length;
-  if (idx === 0) return Math.max(1, c - 1);
-  return Math.max(1, c);
+export function sliceCount(cp: ScrollableCheckpoint, idx?: number) {
+  const c = cp.photoCount;
+  let base = idx === 0 ? Math.max(1, c - 1) : Math.max(1, c);
+  // Scene checkpoints add 1 extra slice specifically for the background transition gap
+  // map pan + photo 0 happen concurrently before the gap.
+  if (cp.hasScene) base += 1;
+  return base;
 }
 
 /** Cumulative scroll offset (in vh) where checkpoint k begins. */
-export function getCheckpointStartVH(checkpoints: CheckpointLike[], idx: number): number {
+export function getCheckpointStartVH(checkpoints: ScrollableCheckpoint[], idx: number): number {
   let vh = 0;
   for (let i = 0; i < idx; i++) {
     vh += sliceCount(checkpoints[i], i) * SCROLL_CONFIG.SLICE_VH;
@@ -55,17 +65,24 @@ export function getCheckpointStartVH(checkpoints: CheckpointLike[], idx: number)
  * Total scrollable height (in vh) for the entire journey.
  * Add extra 100vh padding so the last checkpoint can fully settle.
  */
-export function getTotalVH(checkpoints: CheckpointLike[]): number {
-  const sum = checkpoints.reduce((acc, cp, idx) => acc + sliceCount(cp, idx) * SCROLL_CONFIG.SLICE_VH, 0);
-  return Math.max(0, sum);
+export function getTotalVH(checkpoints: ScrollableCheckpoint[]): number {
+  if (checkpoints.length === 0) return 100;
+  let vh = 0;
+  for (let i = 0; i < checkpoints.length; i++) {
+    vh += sliceCount(checkpoints[i], i) * SCROLL_CONFIG.SLICE_VH;
+  }
+  return vh + 100;
 }
 
 /**
  * The scroll VH at which checkpoint k's marker / entry is perfectly centered.
  * Defined as the midpoint of the first (entry) slice.
  */
-export function getCheckpointCenter(checkpoints: CheckpointLike[], idx: number): number {
-  return getCheckpointStartVH(checkpoints, idx) + SCROLL_CONFIG.SLICE_VH * 0.5;
+export function getCheckpointCenter(checkpoints: ScrollableCheckpoint[], idx: number): number {
+  const start = getCheckpointStartVH(checkpoints, idx);
+  const size = sliceCount(checkpoints[idx], idx) * SCROLL_CONFIG.SLICE_VH;
+  // Let the user rest somewhere in the middle of the checkpoint's budget
+  return start + size * 0.4;
 }
 
 /**
@@ -74,7 +91,7 @@ export function getCheckpointCenter(checkpoints: CheckpointLike[], idx: number):
  * photoIdx is 0-based (photo 0 = first photo slice, immediately after entry).
  */
 export function getPhotoRevealVH(
-  checkpoints: CheckpointLike[],
+  checkpoints: ScrollableCheckpoint[],
   cpIdx: number,
   photoIdx: number,
 ): number {
@@ -90,13 +107,13 @@ export function getPhotoRevealVH(
  * A checkpoint stays active for its entire scroll budget.
  */
 export function getActiveCheckpointIndex(
-  checkpoints: CheckpointLike[],
-  smoothVH: number,
+  checkpoints: ScrollableCheckpoint[],
+  currentVH: number,
 ): number {
   let idx = 0;
   for (let i = 0; i < checkpoints.length; i++) {
     const end = getCheckpointStartVH(checkpoints, i) + sliceCount(checkpoints[i], i) * SCROLL_CONFIG.SLICE_VH;
-    if (smoothVH < end) {
+    if (currentVH < end) {
       idx = i;
       break;
     }
@@ -112,11 +129,10 @@ export function getActiveCheckpointIndex(
  * an instant teleport avoiding tracking intermediate points (non-sequential).
  */
 export function triggerScrollyJump(
-  checkpoints: CheckpointLike[],
-  targetIndex: number,
-  isSequential: boolean,
+  targetIdx: number,
+  isSequential = false,
 ) {
-  const el = document.getElementById(`checkpoint-snap-${targetIndex}`);
+  const el = document.getElementById(`checkpoint-snap-${targetIdx}`);
   if (!el) return;
 
   const lenis = (window as any).__lenis;

@@ -42,6 +42,14 @@
   overflow: visible;
   pointer-events: none;
   contain: size layout;
+  z-index: 2;
+}
+
+.sv-scene {
+  grid-area: 1 / 1;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .map-canvas-layer {

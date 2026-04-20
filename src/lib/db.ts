@@ -5,6 +5,7 @@ export interface Checkpoint {
   lat: number;
   lng: number;
   description: string | null;
+  scene_image: string | null;
   created_at: string;
 }
 

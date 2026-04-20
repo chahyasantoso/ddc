@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useMotionValueEvent, type MotionValue } from 'framer-motion';
-import Map, { Source, Layer, Marker, type MapRef } from 'react-map-gl/maplibre';
+import Map, { Source, Layer, Marker } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useScroll } from 'framer-motion';
 import { useCameraPadding } from '../hooks/useCameraPadding';
@@ -8,7 +8,6 @@ import {
   getCameraFromProgress,
   getMotoBearing,
   buildRouteGeoJSON,
-  buildMarkersGeoJSON,
   MAP_STYLE,
   type CheckpointCoord,
 } from '../lib/mapUtils';
@@ -16,8 +15,8 @@ import {
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface InteractiveMapProps {
   checkpoints: CheckpointCoord[];
-  /** Photo count per checkpoint — drives how long the camera parks at each stop. */
-  photoCounts?: number[];
+  /** Unified timeline source of truth for scrolling interpolation. */
+  scrollables: any[];
   scrollProgress?: MotionValue<number>;
   onCheckpointClick?: (index: number) => void;
 }
@@ -25,8 +24,7 @@ interface InteractiveMapProps {
 const ZOOM = 7.5;
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function InteractiveMap({ checkpoints, photoCounts, scrollProgress, onCheckpointClick }: InteractiveMapProps) {
-  const mapRef     = useRef<MapRef>(null);
+export function InteractiveMap({ checkpoints, scrollables, scrollProgress, onCheckpointClick }: InteractiveMapProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const cameraPad  = useCameraPadding();
 
@@ -50,8 +48,8 @@ export function InteractiveMap({ checkpoints, photoCounts, scrollProgress, onChe
 
   useMotionValueEvent(scrollYProgress, "change", (progress) => {
     if (checkpoints.length < 2) return;
-    const pos     = getCameraFromProgress(checkpoints, photoCounts, progress);
-    const bearing = getMotoBearing(checkpoints, photoCounts, progress);
+    const pos     = getCameraFromProgress(checkpoints, scrollables, progress);
+    const bearing = getMotoBearing(checkpoints, scrollables, progress);
     setViewState(prev => ({ ...prev, latitude: pos.lat, longitude: pos.lng }));
     setMotoPos({ lat: pos.lat, lng: pos.lng, bearing });
   });
@@ -68,7 +66,6 @@ export function InteractiveMap({ checkpoints, photoCounts, scrollProgress, onChe
   }, [handleActive]);
 
   const routeGeoJSON     = buildRouteGeoJSON(checkpoints);
-  const markersGeoJSON   = buildMarkersGeoJSON(checkpoints);
   const activeCp         = checkpoints.find(cp => cp.id === activeId) ?? checkpoints[0];
   const activeGeoJSON    = activeCp ? {
     type: 'FeatureCollection' as const,

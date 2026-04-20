@@ -5,7 +5,7 @@
  * from scroll progress. They have NO React dependencies and can be tested
  * independently.
  */
-import { getTotalVH, getActiveCheckpointIndex, getCheckpointStartVH, SCROLL_CONFIG } from './scrollUtils';
+import { getTotalVH, getActiveCheckpointIndex, getCheckpointStartVH, SCROLL_CONFIG, type ScrollableCheckpoint } from './scrollUtils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -14,6 +14,7 @@ export interface CheckpointCoord {
   location_name: string;
   lat: number;
   lng: number;
+  scene_image?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -23,34 +24,23 @@ function lerp(a: number, b: number, t: number) {
 }
 
 /**
- * Build a lightweight virtual checkpoint list for scroll math.
- * Only the photo count per checkpoint matters for timing calculations.
- */
-export function buildVirtualCheckpoints(cps: CheckpointCoord[], photoCounts?: number[]) {
-  return cps.map((_, i) => ({
-    photos: new Array(photoCounts?.[i] ?? 0),
-  }));
-}
-
-/**
  * Get the map camera's lat/lng for a given scroll progress (0–1).
  * The camera travels between checkpoints during entry slices and parks
  * at the destination for the duration of its photo slices.
  */
 export function getCameraFromProgress(
   cps: CheckpointCoord[],
-  photoCounts: number[] | undefined,
+  scrollables: ScrollableCheckpoint[],
   progress: number,
 ): { lat: number; lng: number } {
   if (cps.length === 0) return { lat: -7.5, lng: 112.5 };
   if (cps.length === 1) return { lat: cps[0].lat, lng: cps[0].lng };
 
-  const virtualCPs = buildVirtualCheckpoints(cps, photoCounts);
-  const totalVH = getTotalVH(virtualCPs);
+  const totalVH = getTotalVH(scrollables);
   const vh = progress * totalVH;
 
-  const k = getActiveCheckpointIndex(virtualCPs, vh);
-  const startVH = getCheckpointStartVH(virtualCPs, k);
+  const k = getActiveCheckpointIndex(scrollables, vh);
+  const startVH = getCheckpointStartVH(scrollables, k);
   const { SLICE_VH } = SCROLL_CONFIG;
 
   // 0.5vh margin handles floating-point inaccuracy at exact slice borders
@@ -73,17 +63,16 @@ export function getCameraFromProgress(
  */
 export function getMotoBearing(
   cps: CheckpointCoord[],
-  photoCounts: number[] | undefined,
+  scrollables: ScrollableCheckpoint[],
   progress: number,
 ): number {
   if (cps.length < 2) return 0;
 
-  const virtualCPs = buildVirtualCheckpoints(cps, photoCounts);
-  const totalVH = getTotalVH(virtualCPs);
+  const totalVH = getTotalVH(scrollables);
   const vh = progress * totalVH;
 
-  const k = getActiveCheckpointIndex(virtualCPs, vh);
-  const startVH = getCheckpointStartVH(virtualCPs, k);
+  const k = getActiveCheckpointIndex(scrollables, vh);
+  const startVH = getCheckpointStartVH(scrollables, k);
   const { SLICE_VH } = SCROLL_CONFIG;
 
   if (vh < startVH + SLICE_VH - 0.5 && k > 0) {

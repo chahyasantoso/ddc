@@ -1,10 +1,11 @@
 -- Seed data: 3 checkpoints (Surabaya → Mojokerto → Malang)
 -- Rute Selatan via motor
 
-INSERT INTO checkpoints (location_name, lat, lng, description, created_at) VALUES
-  ('Surabaya', -7.2575, 112.7521, 'Start dari Surabaya pagi-pagi buta. Kota masih sepi, jalanan basah habis hujan semalam. Gas pertama ke selatan.', '2026-04-11 05:30:00'),
-  ('Mojokerto', -7.4700, 112.4333, 'Berhenti sejenak di Mojokerto. Mampir sarapan nasi pecel pinggir jalan, sambelnya nendang banget. Dari sini mulai naik ke arah gunung.', '2026-04-11 07:15:00'),
-  ('Malang', -7.9797, 112.6304, 'Malang sudah keliatan dingin dari jauh. Kabut turun dari Semeru. Istirahat dulu di sini sebelum lanjut ke barat.', '2026-04-11 10:00:00');
+INSERT INTO checkpoints (location_name, lat, lng, description, scene_image, created_at) VALUES
+  ('Surabaya', -7.2575, 112.7521, 'Start dari Surabaya pagi-pagi buta. Kota masih sepi, jalanan basah habis hujan semalam. Gas pertama ke selatan.', NULL, '2026-04-11 05:30:00'),
+  ('Mojokerto', -7.4700, 112.4333, 'Berhenti sejenak di Mojokerto. Mampir sarapan nasi pecel pinggir jalan, sambelnya nendang banget. Dari sini mulai naik ke arah gunung.', NULL, '2026-04-11 07:15:00'),
+  ('Malang', -7.9797, 112.6304, 'Malang sudah keliatan dingin dari jauh. Kabut turun dari Semeru. Istirahat dulu di sini sebelum lanjut ke barat.', NULL, '2026-04-11 10:00:00'),
+  ('Purwokerto', -7.4245, 109.2302, 'Tiba di Purwokerto sore hari. Udara sejuk kota pensiunan ini, disambut hangatnya mendoan dan kopi hitam. Baturraden memanggil dari kejauhan.', '/uploads/seed/purwokerto-scene.png', '2026-04-12 16:00:00');
 
 -- Photos for Surabaya (checkpoint 1)
 INSERT INTO photos (checkpoint_id, photo_url, caption, "order") VALUES
@@ -22,3 +23,11 @@ INSERT INTO photos (checkpoint_id, photo_url, caption, "order") VALUES
   (3, '/uploads/seed/malang-1.jpg', 'Masuk Malang lewat jalur belakang. Kabut turun, suhu turun 10 derajat langsung.', 0),
   (3, '/uploads/seed/malang-2.jpg', 'Kafe kecil di jalan Ijen. Kopi susu Malang beda—ada manis-manis tersendiri.', 1),
   (3, '/uploads/seed/malang-3.jpg', 'View Gunung Semeru dari ketinggian. Ini yang bikin capek perjalanan terbayar lunas.', 2);
+
+-- Photos for Purwokerto (checkpoint 4)
+INSERT INTO photos (checkpoint_id, photo_url, caption, "order") VALUES
+  (4, '/uploads/seed/purwokerto-1.png', 'Gapura selamat datang kota Purwokerto. Perjalanan panjang dari Jatim terbayar sudah.', 0),
+  (4, '/uploads/seed/purwokerto-2.png', 'Wajib mampir warung pinggir jalan. Mendoan panas dan kopi hitam, comfort food paling juara.', 1),
+  (4, '/uploads/seed/purwokerto-3.png', 'Masuk ke kawasan Baturraden. Hijau, sejuk, dan suara air terjun dimana-mana.', 2),
+  (4, '/uploads/seed/purwokerto-4.png', 'Alun-alun Purwokerto waktu sore. Rame orang jalan-jalan, suasana sore yang menyenangkan.', 3),
+  (4, '/uploads/seed/purwokerto-5.png', 'Parkir motor di pinggir sawah, di bawah bayang-bayang Gunung Slamet yang megah.', 4);

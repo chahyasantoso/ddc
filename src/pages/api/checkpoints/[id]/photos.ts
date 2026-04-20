@@ -4,7 +4,7 @@ import { env } from 'cloudflare:workers';
 import { getStorageProvider } from '../../../../lib/storage';
 import { getDB } from '../../../../lib/db-client';
 
-export const POST: APIRoute = async ({ request, params, locals }) => {
+export const POST: APIRoute = async ({ params, request, locals: _locals }) => {
   try {
     const checkpointId = Number(params.id);
     if (isNaN(checkpointId)) {

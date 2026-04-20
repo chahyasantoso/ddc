@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import type { Checkpoint } from '../lib/types.client';
 
-interface CheckpointInfoCardProps {
+interface InfoCardProps {
   checkpoint: Checkpoint;
   index     : number; // 0-based index in the journey
   total     : number; // total number of checkpoints
@@ -12,7 +12,7 @@ interface CheckpointInfoCardProps {
  * Animates in with a spring when checkpoint changes (driven by React key change).
  * No scroll-link needed — just display the active checkpoint's metadata.
  */
-export function CheckpointInfoCard({ checkpoint, index, total }: CheckpointInfoCardProps) {
+export function InfoCard({ checkpoint, index, total }: InfoCardProps) {
   return (
     <motion.div
       key={checkpoint.id}

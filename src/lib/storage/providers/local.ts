@@ -5,7 +5,7 @@ import type { StorageProvider } from '../index';
 export class LocalStorageProvider implements StorageProvider {
   private uploadsDir: string;
 
-  constructor(env: any) {
+  constructor(_env?: any) {
     // Determine where to save the files. During dev, this is usually /public/uploads/
     this.uploadsDir = join(process.cwd(), 'public', 'uploads');
   }

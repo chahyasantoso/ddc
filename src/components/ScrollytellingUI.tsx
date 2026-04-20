@@ -1,18 +1,19 @@
-import { useCallback, useRef } from 'react';
-import { useScroll, useTransform, motion, type MotionValue } from 'framer-motion';
+import React, { useCallback, useRef } from 'react';
+import { useScroll, useTransform, motion } from 'framer-motion';
 
-import { CheckpointInfoCard } from './CheckpointInfoCard';
 import { InteractiveMap } from './InteractiveMap';
+import { SceneBackdrop } from './SceneBackdrop';
 import type { Checkpoint } from '../lib/types.client';
 import {
   SCROLL_CONFIG,
   getTotalVH,
-  getCheckpointStartVH,
-  sliceCount,
+  toScrollables,
   triggerScrollyJump,
+  getCheckpointStartVH
 } from '../lib/scrollUtils';
 import { useActiveCheckpoint } from '../hooks/useActiveCheckpoint';
-import { CheckpointAlbum } from './CheckpointAlbum';
+import { useSceneAnimation } from '../hooks/useSceneAnimation';
+import { PhotoAlbum } from './PhotoAlbum';
 
 interface Props {
   checkpoints: Checkpoint[];
@@ -48,7 +49,8 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
   const mapScale = useTransform(entryProgress, [0, 1], [0.75, 1]);
   const mapBorderRadius = useTransform(entryProgress, [0, 1], ['40px', '0px']);
 
-  const totalVH = checkpoints.length > 0 ? getTotalVH(checkpoints) : 0;
+  const scrollables = React.useMemo(() => toScrollables(checkpoints), [checkpoints]);
+  const totalVH = checkpoints.length > 0 ? getTotalVH(scrollables) : 0;
   // Container height = total scroll budget + 100vh padding for last checkpoint settle
   const containerHeightVH = Math.max(100, totalVH + 100);
 
@@ -60,15 +62,21 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
   // Dispatch active checkpoint ring events to the map
   useActiveCheckpoint(smoothVH, checkpoints);
 
+  // Scene animation: computes map displacement and scene ranges for parallax backgrounds
+  const { mapTranslateY, sceneRanges } = useSceneAnimation({
+    checkpoints,
+    scrollables,
+    smoothVH,
+  });
+
   const handleJump = useCallback(
     (targetIdx: number) => {
-      const currentVh = smoothVH.get();
       // Always use the teleport jump when clicking a map marker.
       // Smooth scrolling through a long adjacent album feels like a bug.
       const isSequential = false;
-      triggerScrollyJump(checkpoints, targetIdx, isSequential);
+      triggerScrollyJump(targetIdx, isSequential);
     },
-    [smoothVH, checkpoints],
+    [smoothVH, scrollables],
   );
 
   return (
@@ -80,7 +88,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
 
       {/* INVISIBLE SNAP ANCHORS: Aligns browser scroll with the arrival of EACH photo! */}
       {checkpoints.flatMap((cp, i) => {
-        const startVH = getCheckpointStartVH(checkpoints, i);
+        const startVH = getCheckpointStartVH(scrollables, i);
         
         const snaps = cp.photos.map((_, photoIdx) => {
           const isCPArrival = i > 0 && photoIdx === 0;
@@ -122,12 +130,13 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
               transformOrigin: 'center',
               backgroundColor: '#0f0e0d',
               pointerEvents: 'none',
+              y: mapTranslateY,
             }}
           >
             <div className="map-canvas-layer">
               <InteractiveMap
                 checkpoints={mapCheckpoints}
-                photoCounts={checkpoints.map(cp => cp.photos.length)}
+                scrollables={scrollables}
                 scrollProgress={scrollYProgress}
                 onCheckpointClick={(idx) => handleJump(idx)}
               />
@@ -136,16 +145,32 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
         )}
       </div>
 
+      {/* SCENE STICKY LAYER (parallax backgrounds for special checkpoints) */}
+      <div className="sticky-viewport sv-scene">
+        {sceneRanges.map((range) => (
+          <SceneBackdrop
+            key={range.cp.id}
+            imageUrl={range.cp.scene_image!}
+            entryStartVH={range.entryStartVH}
+            entryEndVH={range.entryEndVH}
+            exitStartVH={range.exitStartVH}
+            exitEndVH={range.exitEndVH}
+            smoothVH={smoothVH}
+          />
+        ))}
+      </div>
+
       {/* PHOTOS STICKY LAYER (Visible overflow so photos can fly) */}
       <div className="sticky-viewport sv-photos">
         {/* PHOTO STACKS & INFO CARDS */}
         <div className="floating-photos-zone">
           {checkpoints.length > 0 ? (
             checkpoints.map((cp, i) => (
-              <CheckpointAlbum
+              <PhotoAlbum
                 key={cp.id}
                 cp={cp}
                 checkpoints={checkpoints}
+                scrollables={scrollables}
                 i={i}
                 total={checkpoints.length}
                 smoothVH={smoothVH}

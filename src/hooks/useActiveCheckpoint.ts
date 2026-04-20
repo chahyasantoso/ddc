@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useMotionValueEvent, type MotionValue } from 'framer-motion';
-import { getActiveCheckpointIndex, getCheckpointStartVH, SCROLL_CONFIG } from '../lib/scrollUtils';
+import { getActiveCheckpointIndex, getCheckpointStartVH, SCROLL_CONFIG, toScrollables } from '../lib/scrollUtils';
 import type { Checkpoint } from '../lib/types.client';
 
 /**
@@ -20,8 +20,9 @@ export function useActiveCheckpoint(
   useMotionValueEvent(smoothVH, 'change', (vh) => {
     if (checkpoints.length === 0) return;
 
-    const k = getActiveCheckpointIndex(checkpoints, vh);
-    const startVH = getCheckpointStartVH(checkpoints, k);
+    const scrollables = toScrollables(checkpoints);
+    const k = getActiveCheckpointIndex(scrollables, vh);
+    const startVH = getCheckpointStartVH(scrollables, k);
     const { SLICE_VH } = SCROLL_CONFIG;
 
     // During the entry/travel slice, the motorcycle hasn't arrived yet —
