@@ -74,26 +74,26 @@ export function useSceneAnimation({ checkpoints, scrollables, smoothVH }: UseSce
     });
   });
 
-  // Calculate the dynamic map displacement factor (0 = map visible, 1 = map displaced)
-  const mapDisplacement = useTransform(smoothVH, (vh) => {
+  // Calculate map translateY directly to control entry/exit direction
+  const mapTranslateY = useTransform(smoothVH, (vh) => {
     for (const range of mapDisplacementRanges) {
-      // 0 -> 1 during entry of the very first backdrop
+      // Entry: Map slides DOWN out of view (0vh -> 100vh)
       if (vh >= range.start && vh < range.start + SLICE_VH) {
-        return (vh - range.start) / SLICE_VH;
+        const t = (vh - range.start) / SLICE_VH;
+        return `${t * 100}vh`;
       }
-      // 1 (fully displaced) while backdrops are active, even if polaroids are flying in front
+      // Active: Map is off-screen. Teleport it to the top (-100vh) so it's ready to slide down.
       if (vh >= range.start + SLICE_VH && vh < range.end) {
-        return 1;
+        return '-100vh';
       }
-      // 1 -> 0 during checkout exit
+      // Exit: Map slides DOWN from top back into view (-100vh -> 0vh)
       if (vh >= range.end && vh < range.end + SLICE_VH) {
-        return 1 - (vh - range.end) / SLICE_VH;
+        const t = (vh - range.end) / SLICE_VH;
+        return `${-100 + t * 100}vh`;
       }
     }
-    return 0;
+    return '0vh'; // Default visible
   });
-
-  const mapTranslateY = useTransform(mapDisplacement, [0, 1], ['0vh', '100vh']);
 
   return { mapTranslateY, sceneRanges };
 }
