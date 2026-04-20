@@ -23,57 +23,76 @@ export interface SceneRange {
 export function useSceneAnimation({ checkpoints, scrollables, smoothVH }: UseSceneAnimationProps) {
   const { SLICE_VH } = SCROLL_CONFIG;
 
-  // Generate one SceneRange per backdrop image — each gets its own dedicated scroll slice
   const sceneRanges: SceneRange[] = [];
+  // We'll track the global min map displacement ranges
+  // Array of [startVH, endVH] where the map should be fully displaced
+  const mapDisplacementRanges: { start: number; end: number }[] = [];
 
   checkpoints.forEach((cp, i) => {
-    const images = cp.scene_images?.length
-      ? cp.scene_images
-      : cp.scene_image ? [cp.scene_image] : [];
-
-    if (images.length === 0) return;
-
     const startVH = getCheckpointStartVH(scrollables, i);
+    const totalSlices = sliceCount(scrollables[i], i);
+    const endVH = startVH + totalSlices * SLICE_VH;
 
-    images.forEach((imageUrl, imgIdx) => {
-      // Each backdrop occupies its own slice window, stacked sequentially after the map pan slice
-      const entryStartVH = startVH + SLICE_VH + imgIdx * SLICE_VH;
-      const entryEndVH   = entryStartVH + SLICE_VH;
+    // Filter out only the backdrops, but keep their absolute index
+    const backdrops = (cp.photos || [])
+      .map((photo, index) => ({ photo, index }))
+      .filter((item) => item.photo.is_backdrop === 1);
 
-      // This backdrop is "active" until the next one starts (or until album exit)
-      const totalSlices = sliceCount(scrollables[i], i);
-      const endVH = startVH + totalSlices * SLICE_VH;
-      const exitStartVH = imgIdx < images.length - 1
-        ? entryEndVH // next backdrop starts immediately → this one exits
-        : endVH;     // last backdrop holds until the album is done
+    if (backdrops.length === 0) return;
+
+    // The map slides down when the FIRST backdrop enters
+    const firstBackdropEntryStartVH = startVH + (backdrops[0].index - (i === 0 ? 1 : 0)) * SLICE_VH;
+    // Map stays completely displaced until the checkpoint ends
+    mapDisplacementRanges.push({
+      start: firstBackdropEntryStartVH,
+      end: endVH,
+    });
+
+    backdrops.forEach((b, idx) => {
+      // Entry matches its absolute timeline index
+      const entryStartVH = startVH + (b.index - (i === 0 ? 1 : 0)) * SLICE_VH;
+      const entryEndVH = entryStartVH + SLICE_VH;
+
+      // This backdrop remains active as the background until the NEXT backdrop arrives (or checkpoint ends)
+      const nextBackdrop = backdrops[idx + 1];
+      const exitStartVH = nextBackdrop
+        ? startVH + (nextBackdrop.index - (i === 0 ? 1 : 0)) * SLICE_VH
+        : endVH;
       const exitEndVH = exitStartVH + SLICE_VH;
 
-      sceneRanges.push({ cp, i, imageUrl, imageIndex: imgIdx, startVH, entryStartVH, entryEndVH, exitStartVH, exitEndVH });
+      sceneRanges.push({
+        cp,
+        i,
+        imageUrl: b.photo.photo_url,
+        imageIndex: b.index, // Absolute index ensures it mounts exactly once and stays keyed
+        startVH,
+        entryStartVH,
+        entryEndVH,
+        exitStartVH,
+        exitEndVH,
+      });
     });
   });
 
-  // Compute a combined "map displacement" value:
-  // 0 = map fully visible, 1 = map fully off-screen
+  // Calculate the dynamic map displacement factor (0 = map visible, 1 = map displaced)
   const mapDisplacement = useTransform(smoothVH, (vh) => {
-    for (const range of sceneRanges) {
-      const { entryStartVH, entryEndVH, exitStartVH, exitEndVH } = range;
-      // Entry: 0 → 1
-      if (vh >= entryStartVH && vh < entryEndVH) {
-        return (vh - entryStartVH) / SLICE_VH;
+    for (const range of mapDisplacementRanges) {
+      // 0 -> 1 during entry of the very first backdrop
+      if (vh >= range.start && vh < range.start + SLICE_VH) {
+        return (vh - range.start) / SLICE_VH;
       }
-      // Active: fully displaced
-      if (vh >= entryEndVH && vh < exitStartVH) {
+      // 1 (fully displaced) while backdrops are active, even if polaroids are flying in front
+      if (vh >= range.start + SLICE_VH && vh < range.end) {
         return 1;
       }
-      // Exit: 1 → 0
-      if (vh >= exitStartVH && vh < exitEndVH) {
-        return 1 - (vh - exitStartVH) / SLICE_VH;
+      // 1 -> 0 during checkout exit
+      if (vh >= range.end && vh < range.end + SLICE_VH) {
+        return 1 - (vh - range.end) / SLICE_VH;
       }
     }
     return 0;
   });
 
-  // Map translateY: 0vh → 100vh
   const mapTranslateY = useTransform(mapDisplacement, [0, 1], ['0vh', '100vh']);
 
   return { mapTranslateY, sceneRanges };

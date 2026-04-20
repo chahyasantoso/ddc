@@ -16,10 +16,8 @@ export interface Checkpoint {
   lat           : number;
   lng           : number;
   description   : string | null;
-  /** @deprecated Use scene_images instead. Kept for DB backward compat. */
+  /** @deprecated Kept for DB backward compat. Native backdrops live in photos[]. */
   scene_image   : string | null;
-  /** Ordered list of backdrop photo URLs for this checkpoint's scene slideshow. */
-  scene_images  : string[];
   created_at    : string;
   photos        : Photo[];
 }

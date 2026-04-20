@@ -30,18 +30,13 @@ export const SCROLL_CONFIG = {
 // ── Checkpoint type (minimal shape needed by math helpers) ───────────────────
 
 export interface ScrollableCheckpoint {
+  /** Total number of items (polaroids + backdrops). Each adds one dedicated scroll slice. */
   photoCount: number;
-  /** Number of backdrop images (0 = no scene). Each adds one dedicated scroll slice. */
-  sceneCount: number;
 }
 
 export function toScrollables(checkpoints: any[]): ScrollableCheckpoint[] {
   return checkpoints.map(cp => ({
     photoCount: cp.photoCount ?? (Array.isArray(cp.photos) ? cp.photos.length : 0),
-    sceneCount: cp.sceneCount ?? (
-      Array.isArray(cp.scene_images) ? cp.scene_images.length
-        : (cp.scene_image ? 1 : 0)
-    ),
   }));
 }
 
@@ -49,10 +44,9 @@ export function toScrollables(checkpoints: any[]): ScrollableCheckpoint[] {
 
 export function sliceCount(cp: ScrollableCheckpoint, idx?: number) {
   const c = cp.photoCount;
-  let base = idx === 0 ? Math.max(1, c - 1) : Math.max(1, c);
-  // Each backdrop photo adds 1 dedicated scroll slice for its transition
-  base += cp.sceneCount;
-  return base;
+  // If it's the first checkpoint, map pan takes 0 time, so we need 1 fewer slice
+  // Total slices = number of items (c)
+  return idx === 0 ? Math.max(1, c - 1) : Math.max(1, c);
 }
 
 /** Cumulative scroll offset (in vh) where checkpoint k begins. */

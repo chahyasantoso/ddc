@@ -33,7 +33,7 @@ INSERT INTO photos (checkpoint_id, photo_url, caption, "order", is_backdrop) VAL
 INSERT INTO photos (checkpoint_id, photo_url, caption, "order", is_backdrop) VALUES
   (4, '/uploads/seed/purwokerto-1.png', 'Gapura selamat datang kota Purwokerto. Perjalanan panjang dari Jatim terbayar sudah.', 0, 0),
   (4, '/uploads/seed/purwokerto-2.png', 'Wajib mampir warung pinggir jalan. Mendoan panas dan kopi hitam, comfort food paling juara.', 1, 1),
-  (4, '/uploads/seed/purwokerto-3.png', 'Masuk ke kawasan Baturraden. Hijau, sejuk, dan suara air terjun dimana-mana.', 2, 1),
+  (4, '/uploads/seed/purwokerto-3.png', 'Masuk ke kawasan Baturraden. Hijau, sejuk, dan suara air terjun dimana-mana.', 2, 0),
 -- ↑ is_backdrop=1: purwokerto-3.png becomes the cinematic backdrop for Purwokerto
-  (4, '/uploads/seed/purwokerto-4.png', 'Alun-alun Purwokerto waktu sore. Rame orang jalan-jalan, suasana sore yang menyenangkan.', 3, 0),
+  (4, '/uploads/seed/purwokerto-4.png', 'Alun-alun Purwokerto waktu sore. Rame orang jalan-jalan, suasana sore yang menyenangkan.', 3, 1),
   (4, '/uploads/seed/purwokerto-5.png', 'Parkir motor di pinggir sawah, di bawah bayang-bayang Gunung Slamet yang megah.', 4, 0);

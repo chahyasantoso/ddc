@@ -44,21 +44,24 @@ export function PhotoAlbum(props: PhotoAlbumProps) {
       {cp.photos.length > 0 && (
         <div className="photo-stack-wrapper">
           <div className="ps-deck">
-            {cp.photos.map((photo, photoIdx) => (
-              <PhotoSlide
-                key={`photo-${photo.id}`}
-                photo={photo}
-                photoIdx={photoIdx}
-                totalPhotos={cp.photos.length}
-                index={i}
-                startVH={startVH}
-                sceneOffset={cp.scene_images?.length ?? (cp.scene_image ? 1 : 0)}
-                smoothVH={smoothVH}
-                checkpointReveal={gatedReveal}
-                parallaxFactor={0.85 + (photoIdx * 0.1)}
-                onOpen={(rotate) => setActiveModal({ photo, rotate })}
-              />
-            ))}
+            {cp.photos.map((photo, absoluteIdx) => {
+              if (photo.is_backdrop === 1) return null;
+              
+              return (
+                <PhotoSlide
+                  key={`photo-${photo.id}`}
+                  photo={photo}
+                  absoluteIndex={absoluteIdx}
+                  totalItems={cp.photos.length}
+                  index={i}
+                  startVH={startVH}
+                  smoothVH={smoothVH}
+                  checkpointReveal={gatedReveal}
+                  parallaxFactor={0.85 + (absoluteIdx * 0.1)}
+                  onOpen={(rotate) => setActiveModal({ photo, rotate })}
+                />
+              );
+            })}
           </div>
         </div>
       )}
