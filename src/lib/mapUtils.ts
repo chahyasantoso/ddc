@@ -116,13 +116,9 @@ export function buildMarkersGeoJSON(cps: CheckpointCoord[]) {
 
 // ── Map style ─────────────────────────────────────────────────────────────────
 
-export const MAP_STYLE = {
+export const BASE_MAP_STYLE = {
   version: 8 as const,
   glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-  sources: { java: { type: 'geojson' as const, data: '/java.geojson' } },
-  layers: [
-    { id: 'background', type: 'background' as const, paint: { 'background-color': '#0f0e0d' } },
-    { id: 'java-fill', type: 'fill' as const, source: 'java', paint: { 'fill-color': '#1e1a18', 'fill-opacity': 0.97 } },
-    { id: 'java-outline', type: 'line' as const, source: 'java', paint: { 'line-color': '#3d3530', 'line-width': 0.8, 'line-opacity': 0.7 } },
-  ],
+  sources: {},
+  layers: [],
 };

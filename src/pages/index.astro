@@ -102,6 +102,10 @@ try {
       <span class="hud-live-dot"></span>
       <span class="hud-title">DDC</span>
       <span class="hud-subtitle">Live Motorcycle Journal</span>
+      <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Theme">
+        <span class="sun-icon">☀️</span>
+        <span class="moon-icon">🌙</span>
+      </button>
     </div>
 
 
@@ -178,6 +182,29 @@ try {
           setTimeout(() => splash.remove(), 1000);
         }
       }, 5000);
+
+      // ── Theme Toggle Logic ──────────────────────────────────────────────────
+      const themeToggle = document.getElementById('theme-toggle');
+      const root = document.documentElement;
+
+      // Check for saved theme or system preference
+      const savedTheme = localStorage.getItem('theme');
+      const systemPrefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+
+      if (savedTheme === 'light' || (!savedTheme && systemPrefersLight)) {
+        root.setAttribute('data-theme', 'light');
+      }
+
+      themeToggle?.addEventListener('click', () => {
+        const isLight = root.getAttribute('data-theme') === 'light';
+        if (isLight) {
+          root.removeAttribute('data-theme');
+          localStorage.setItem('theme', 'dark');
+        } else {
+          root.setAttribute('data-theme', 'light');
+          localStorage.setItem('theme', 'light');
+        }
+      });
     </script>
   </body>
 </html>

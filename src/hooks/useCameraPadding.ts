@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Padding {
   top: number;
@@ -26,7 +26,7 @@ export function useCameraPadding(): Padding {
       setPad(
         w >= 768
           ? { top: 0, right: Math.round(w * 0.45), bottom: 0, left: 0 }
-          : { top: 0, right: 0, bottom: Math.round(h * 0.55), left: 0 },
+          : { top: 0, right: 0, bottom: Math.round(h * 0.2), left: 0 },
       );
     }
     update();

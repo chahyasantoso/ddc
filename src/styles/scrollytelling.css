@@ -74,13 +74,13 @@
   align-items: center;
   justify-content: center;
   z-index: 60;
-  background: rgba(15, 14, 13, 0.4);
+  background: color-mix(in srgb, var(--bg) 40%, transparent);
   backdrop-filter: blur(4px);
 }
 
 .coming-soon-content {
   text-align: center;
-  color: #fff;
+  color: var(--text);
 }
 
 .coming-soon-title {
@@ -90,7 +90,7 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin-bottom: 1rem;
-  background: linear-gradient(180deg, #fff 40%, rgba(255, 255, 255, 0.4) 100%);
+  background: linear-gradient(180deg, var(--text) 40%, color-mix(in srgb, var(--text) 40%, transparent) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -108,9 +108,9 @@
 .coming-soon-divider {
   width: 60px;
   height: 2px;
-  background: #f59e0b;
+  background: var(--accent);
   margin: 2rem auto 0;
-  box-shadow: 0 0 15px #f59e0b;
+  box-shadow: 0 0 15px var(--accent);
 }
 
 /* ── "Latest Update" floating button ─────────────────────────────────────── */
@@ -119,11 +119,11 @@
   bottom: 24px;
   right: 24px;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in srgb, var(--text) 90%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #0f0e0d;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: var(--bg);
+  border: 1px solid var(--border);
   padding: 12px 16px;
   border-radius: 50px;
   font-weight: 600;
@@ -148,7 +148,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 50vh;
+  height: 40vh;
   pointer-events: auto;
 }
 
@@ -165,7 +165,7 @@
 
 .photo-stack-wrapper {
   position: absolute;
-  bottom: 15vh;
+  bottom: 10vh;
   top: auto;
   left: 5%;
   right: 5%;
@@ -310,8 +310,8 @@
 
 .ps-nav-btn {
   display: none;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
   color: var(--text);
   border-radius: 50%;
   width: 32px;
@@ -326,7 +326,7 @@
 }
 
 .ps-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: color-mix(in srgb, var(--text) 18%, transparent);
   transform: scale(1.08);
 }
 
@@ -349,7 +349,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
+  background: color-mix(in srgb, var(--text) 25%, transparent);
   border: none;
   cursor: pointer;
   padding: 0;
@@ -357,19 +357,19 @@
 }
 
 .ps-dot:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: color-mix(in srgb, var(--text) 50%, transparent);
   transform: scale(1.15);
 }
 
 .ps-dot-active {
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in srgb, var(--text) 90%, transparent);
   transform: scale(1.2);
 }
 
 /* ── Checkpoint Info Zone & Card ─────────────────────────────────────────── */
 .checkpoint-info-zone {
   position: absolute;
-  bottom: 45vh;
+  bottom: 75vh;
   left: 0;
   right: 0;
   display: flex;
@@ -409,22 +409,22 @@
 
 .checkpoint-info-card {
   pointer-events: auto;
-  background: rgba(12, 10, 9, 0.72);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
   backdrop-filter: blur(20px) saturate(1.8);
   -webkit-backdrop-filter: blur(20px) saturate(1.8);
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   border-radius: 12px;
   padding: 16px 20px;
   max-width: 380px;
   width: 100%;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.6),
-    inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    inset 0 1px 1px var(--border);
   transition: border-color 0.4s ease;
 }
 
 .checkpoint-info-card:hover {
-  border-color: rgba(245, 158, 11, 0.5);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 @media (min-width: 768px) {

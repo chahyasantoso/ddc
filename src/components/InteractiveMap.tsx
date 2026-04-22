@@ -8,7 +8,7 @@ import {
   getCameraFromProgress,
   getMotoBearing,
   buildRouteGeoJSON,
-  MAP_STYLE,
+  BASE_MAP_STYLE,
   type CheckpointCoord,
 } from '../lib/mapUtils';
 
@@ -43,6 +43,23 @@ export function InteractiveMap({ checkpoints, scrollables, scrollProgress, onChe
 
   const [motoPos, setMotoPos] = useState({ lat: init.lat, lng: init.lng, bearing: 0 });
   const [activeId, setActiveId] = useState<number>(checkpoints[0]?.id ?? -1);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  // Track the HTML data-theme attribute to dynamically switch the map style
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    
+    const updateTheme = () => {
+      setTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+    };
+    
+    updateTheme(); // initial check
+
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    
+    return () => observer.disconnect();
+  }, []);
 
   const fallbackScroll = useScroll(); // Automatically tracks global window layout scroll depth
   const scrollYProgress = scrollProgress || fallbackScroll.scrollYProgress;
@@ -81,7 +98,7 @@ export function InteractiveMap({ checkpoints, scrollables, scrollProgress, onChe
         {...viewState}
         // Camera padding: keeps motorcycle in left (desktop) or top (mobile) portion
         padding={cameraPad}
-        mapStyle={MAP_STYLE as never}
+        mapStyle={BASE_MAP_STYLE as never}
         onLoad={() => {
           setMapLoaded(true);
           onMapLoaded?.();
@@ -94,6 +111,24 @@ export function InteractiveMap({ checkpoints, scrollables, scrollProgress, onChe
         keyboard={false}
         style={{ width: '100%', height: '100%' }}
       >
+        {/* Declarative Map Background & Island polygon */}
+        <Layer 
+          id="background" 
+          type="background" 
+          paint={{ 'background-color': theme === 'light' ? '#e0f2fe' : '#0c0a09' }} 
+        />
+        <Source id="java" type="geojson" data="/java.geojson">
+          <Layer 
+            id="java-fill" 
+            type="fill" 
+            paint={{ 'fill-color': theme === 'light' ? '#ffffff' : '#1c1917', 'fill-opacity': 0.97 }} 
+          />
+          <Layer 
+            id="java-outline" 
+            type="line" 
+            paint={{ 'line-color': theme === 'light' ? '#cbd5e1' : '#3c3836', 'line-width': 1.2, 'line-opacity': 0.8 }} 
+          />
+        </Source>
         {/* Route */}
         {routeGeoJSON && (
           <Source id="route" type="geojson" data={routeGeoJSON}>

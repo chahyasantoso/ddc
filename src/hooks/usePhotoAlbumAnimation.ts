@@ -60,7 +60,7 @@ export function usePhotoAlbumAnimation({
   const albumExitProgress = useTransform(smoothVH, [endVH, exitEndVH], [0, isLast ? 0 : 1]);
 
   // Photo stack: drift up and fade — both driven by the same progress, perfectly in sync.
-  const photoExitY = useTransform(albumExitProgress, p => `${-p * 20}vh`);
+  const photoExitY = useTransform(albumExitProgress, p => `${-p * 10}vh`);
   const photoExitOpacity = useTransform(albumExitProgress, p => 1 - p);
 
   // Info card lifecycle signal (0→1→2) fed directly to ScrollSlide.

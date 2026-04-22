@@ -5,25 +5,71 @@
    Phase 5: Fullscreen Map + Scrollytelling Overlay
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Tokens ──────────────────────────────────────────────────────────────── */
+/* ── Theme Tokens ────────────────────────────────────────────────────────── */
+
+/* Base Typography (Theme Agnostic) */
 :root {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --font-display: 'Oswald', sans-serif;
+}
+
+/* Default Theme (Dark) */
+:root {
+  color-scheme: dark;
+
+  /* Backgrounds */
   --bg: #0c0a09;
   --surface: #1c1917;
   --surface-2: #292524;
   --surface-3: #3c3836;
+
+  /* Accents */
   --accent: #f59e0b;
   --accent-dim: #92400e;
   --accent-soft: rgba(245, 158, 11, 0.12);
+
+  /* Typography */
   --text: #fef3c7;
   --text-muted: #a8a29e;
   --text-faint: #57534e;
+
+  /* Borders & Misc */
   --border: rgba(255, 255, 255, 0.07);
+}
 
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
-  --font-display: 'Oswald', sans-serif;
+/* Light Theme (Activated via data attribute or class) */
+:root[data-theme='light'],
+.light-theme {
+  color-scheme: light;
 
-  color-scheme: dark;
+  /* Backgrounds */
+  --bg: #fafaf9;
+  /* stone-50 */
+  --surface: #f5f5f4;
+  /* stone-100 */
+  --surface-2: #e7e5e4;
+  /* stone-200 */
+  --surface-3: #d6d3d1;
+  /* stone-300 */
+
+  /* Accents */
+  --accent: #d97706;
+  /* amber-600 */
+  --accent-dim: #b45309;
+  /* amber-700 */
+  --accent-soft: rgba(217, 119, 6, 0.12);
+
+  /* Typography */
+  --text: #1c1917;
+  /* stone-900 */
+  --text-muted: #57534e;
+  /* stone-600 */
+  --text-faint: #a8a29e;
+  /* stone-400 */
+
+  /* Borders & Misc */
+  --border: rgba(0, 0, 0, 0.1);
 }
 
 /* ── Reset ───────────────────────────────────────────────────────────────── */
@@ -172,6 +218,53 @@ body::before {
 .admin-link-fixed:hover {
   color: var(--accent);
   border-color: var(--accent-dim);
+}
+
+/* ── Theme Toggle Button ─────────────────────────────────────────────────── */
+.theme-toggle-btn {
+  margin-left: auto; /* Push to the right */
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 1.1rem;
+  transition: background 0.2s, transform 0.2s;
+  pointer-events: auto; /* Re-enable clicks since hud-bar is pointer-events: none */
+}
+
+.theme-toggle-btn:hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  transform: scale(1.05);
+}
+
+.theme-toggle-btn .sun-icon {
+  display: none;
+}
+
+.theme-toggle-btn .moon-icon {
+  display: block;
+}
+
+/* When in light mode, show the moon (to switch back to dark). When in dark mode, show the sun. */
+/* Wait, standard UX: show the icon of what you will change TO, or what it CURRENTLY is? Usually what you change TO. */
+:root:not([data-theme='light']) .theme-toggle-btn .sun-icon {
+  display: block;
+}
+:root:not([data-theme='light']) .theme-toggle-btn .moon-icon {
+  display: none;
+}
+
+:root[data-theme='light'] .theme-toggle-btn .sun-icon {
+  display: none;
+}
+:root[data-theme='light'] .theme-toggle-btn .moon-icon {
+  display: block;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
