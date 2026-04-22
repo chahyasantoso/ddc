@@ -1,8 +1,9 @@
-import { motion, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { usePhotoAlbumAnimation, type PhotoAlbumProps } from '../hooks/usePhotoAlbumAnimation';
 import { getCheckpointStartVH } from '../lib/scrollUtils';
 import type { Photo } from '../lib/types.client';
+import { AmbyarScatter } from './AmbyarScatter';
 import { InfoCard } from './InfoCard';
 import { PhotoModal } from './PhotoModal';
 import { PhotoSlide } from './PhotoSlide';
@@ -11,43 +12,33 @@ import { ScrollSlide } from './ScrollSlide';
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function PhotoAlbum(props: PhotoAlbumProps) {
-  const { cp, scrollables, i, total, smoothVH } = props;
+  const { cp, scrollables, i, total, smoothVH, exitStyle = 'default' } = props;
 
-  // Modal state: which photo is open (null = closed)
   const [activeModal, setActiveModal] = useState<{ photo: Photo; rotate: number } | null>(null);
 
-  // 1. Get the behavior/animations from our custom hook
-  const { groupY, groupOpacity, gatedReveal, infoY } = usePhotoAlbumAnimation(props);
+  // All animation logic lives in the hook.
+  // Each style/signal maps directly to one element below — no manual wiring needed.
+  const {
+    wrapperStyle,       // → outer motion.div    (z-index, visibility gate)
+    photoStackStyle,    // → photo-stack-wrapper (entry: drift up | exit: slide up + fade)
+    gatedReveal,        // → PhotoSlide signal   (drives individual photo entry animations)
+    infoCardReveal,     // → ScrollSlide reveal  (lifecycle 0→1→2: entry slide + exit slide)
+    albumExitProgress,  // → AmbyarScatter signal (only when exitStyle='ambyar')
+  } = usePhotoAlbumAnimation(props);
 
-  // 2. Pre-calculate the starting point of the album for the photos
   const startVH = getCheckpointStartVH(scrollables, i);
 
-  // Hide the entire checkpoint layer when its reveal is essentially 0.
-  // This prevents higher-z-index layers from obscuring earlier checkpoints
-  // during backward jumps or while the spring is catching up.
-  const wrapperVisibility = useTransform(gatedReveal, r => r > 0.01 ? 'visible' : 'hidden');
-
-  // 3. Render the layout
   return (
-    <motion.div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        y: groupY,
-        opacity: groupOpacity,
-        zIndex: i * 10,
-        pointerEvents: 'none',
-        visibility: wrapperVisibility as any,
-      }}
-    >
-      {/* ── Album Photos Stack ── */}
+    <motion.div style={wrapperStyle}>
+
+      {/* ── Photo Stack ────────────────────────────────────────────────────── */}
       {cp.photos.length > 0 && (
-        <div className="photo-stack-wrapper">
+        <motion.div className="photo-stack-wrapper" style={photoStackStyle}>
           <div className="ps-deck">
             {cp.photos.map((photo, absoluteIdx) => {
               if (photo.is_backdrop === 1) return null;
-              
-              return (
+
+              const slide = (
                 <PhotoSlide
                   key={`photo-${photo.id}`}
                   photo={photo}
@@ -57,35 +48,51 @@ export function PhotoAlbum(props: PhotoAlbumProps) {
                   startVH={startVH}
                   smoothVH={smoothVH}
                   checkpointReveal={gatedReveal}
-                  parallaxFactor={0.85 + (absoluteIdx * 0.1)}
+                  parallaxFactor={0.5 + absoluteIdx * 0.1}
                   onOpen={(rotate) => setActiveModal({ photo, rotate })}
                 />
               );
+
+              if (exitStyle === 'ambyar') {
+                return (
+                  <AmbyarScatter
+                    key={`ambyar-${photo.id}`}
+                    exitProgress={albumExitProgress}
+                    index={absoluteIdx}
+                  >
+                    {slide}
+                  </AmbyarScatter>
+                );
+              }
+
+              return slide;
             })}
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* ── Album Info Card ── */}
+      {/* ── Info Card ──────────────────────────────────────────────────────── */}
+      {/* ScrollSlide owns the full lifecycle: enters from left (entryDx), exits to right (exitDx) */}
       <div className="checkpoint-info-zone pointer-events-none">
         <ScrollSlide
-          reveal={gatedReveal}
-          direction="bottom"
-          parallaxFactor={1.4}
-          revealScaleStart={1.1}
-          baseScale={1}
+          reveal={infoCardReveal}
+          entryDx={-200}
+          exitDy={-200}
+          entryScaleStart={1.05}
           zIndex={50}
           className="info-card-parallax-wrapper"
         >
           <InfoCard checkpoint={cp} index={i} total={total} />
         </ScrollSlide>
       </div>
-      {/* ── Photo Modal (rendered outside sticky/z-index layer) ── */}
+
+      {/* ── Photo Modal ────────────────────────────────────────────────────── */}
       <PhotoModal
         photo={activeModal?.photo ?? null}
         rotate={activeModal?.rotate ?? 0}
         onClose={() => setActiveModal(null)}
       />
+
     </motion.div>
   );
 }

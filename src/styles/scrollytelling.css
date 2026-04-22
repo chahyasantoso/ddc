@@ -148,7 +148,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 48vh;
+  height: 50vh;
   pointer-events: auto;
 }
 
@@ -165,7 +165,7 @@
 
 .photo-stack-wrapper {
   position: absolute;
-  bottom: 5vh;
+  bottom: 15vh;
   top: auto;
   left: 5%;
   right: 5%;
@@ -369,27 +369,41 @@
 /* ── Checkpoint Info Zone & Card ─────────────────────────────────────────── */
 .checkpoint-info-zone {
   position: absolute;
-  bottom: 48vh;
+  bottom: 45vh;
   left: 0;
   right: 0;
   display: flex;
   justify-content: center;
   align-items: flex-end;
   pointer-events: none;
-  padding: 0 16px;
+  padding: 0 20px;
   z-index: 60;
-  margin-bottom: 2vh;
+}
+
+/* ScrollSlide fills inset:0, so we re-center the card inside it */
+.info-card-parallax-wrapper {
+  display: flex !important;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 0 20px;
+}
+
+@media (min-width: 768px) {
+  .info-card-parallax-wrapper {
+    align-items: flex-start;
+    padding: 0 16px;
+  }
 }
 
 @media (min-width: 768px) {
   .checkpoint-info-zone {
-    bottom: auto;
-    margin-bottom: 0;
     top: 15%;
+    bottom: 0;
     right: 48%;
     left: auto;
     width: 420px;
-    margin-top: 10px;
+    padding: 0;
+    margin: 0;
   }
 }
 
@@ -400,8 +414,8 @@
   -webkit-backdrop-filter: blur(20px) saturate(1.8);
   border: 1px solid rgba(245, 158, 11, 0.25);
   border-radius: 12px;
-  padding: 18px 22px;
-  max-width: 420px;
+  padding: 16px 20px;
+  max-width: 380px;
   width: 100%;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.6),

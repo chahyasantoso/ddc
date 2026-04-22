@@ -1,19 +1,19 @@
+import { motion, useAnimation, useMotionValueEvent, useScroll, useTransform } from 'framer-motion';
 import React, { useCallback, useRef } from 'react';
-import { useScroll, useTransform, motion, useAnimation, useMotionValueEvent } from 'framer-motion';
 
-import { InteractiveMap } from './InteractiveMap';
-import { SceneBackdrop } from './SceneBackdrop';
-import type { Checkpoint } from '../lib/types.client';
-import {
-  SCROLL_CONFIG,
-  getTotalVH,
-  toScrollables,
-  triggerScrollyJump,
-  getCheckpointStartVH
-} from '../lib/scrollUtils';
 import { useActiveCheckpoint } from '../hooks/useActiveCheckpoint';
 import { useSceneAnimation } from '../hooks/useSceneAnimation';
+import {
+  SCROLL_CONFIG,
+  getCheckpointStartVH,
+  getTotalVH,
+  toScrollables,
+  triggerScrollyJump
+} from '../lib/scrollUtils';
+import type { Checkpoint } from '../lib/types.client';
+import { InteractiveMap } from './InteractiveMap';
 import { PhotoAlbum } from './PhotoAlbum';
+import { SceneBackdrop } from './SceneBackdrop';
 
 interface Props {
   checkpoints: Checkpoint[];
@@ -81,7 +81,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
   // Use triggered animation rather than perfectly matched scroll frames
   useMotionValueEvent(smoothVH, 'change', (vh) => {
     const pVH = prevVH.current;
-    
+
     for (const range of mapDisplacementRanges) {
       // Crossing 'start' downwards -> map exits down
       if (pVH < range.start && vh >= range.start) {
@@ -89,12 +89,12 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
       }
       // Crossing 'start' upwards -> map enters from bottom (100vh -> 0)
       else if (pVH >= range.start && vh < range.start) {
-        mapControls.set({ y: '100vh' }); 
+        mapControls.set({ y: '100vh' });
         mapControls.start({ y: '0vh', transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
       }
       // Crossing 'end' downwards -> map enters from top (-100vh -> 0)
       else if (pVH < range.end && vh >= range.end) {
-        mapControls.set({ y: '-100vh' }); 
+        mapControls.set({ y: '-100vh' });
         mapControls.start({ y: '0vh', transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
       }
       // Crossing 'end' upwards -> map exits up (0 -> -100vh)
@@ -137,20 +137,20 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
       {/* INVISIBLE SNAP ANCHORS: Aligns browser scroll with the arrival of EACH photo! */}
       {checkpoints.flatMap((cp, i) => {
         const startVH = getCheckpointStartVH(scrollables, i);
-        
+
         const snaps = cp.photos.map((_, photoIdx) => {
           const isCPArrival = i > 0 && photoIdx === 0;
           // Checkpoint 0 is shifted left by 1 slice, so its arrival points are (photoIdx) * 100vh
           // instead of (photoIdx + 1) * 100vh.
           const arrivalVH = startVH + (i === 0 ? photoIdx : photoIdx + 1) * SCROLL_CONFIG.SLICE_VH;
-          
+
           return {
             // For jumps, we anchor to the first photo's arrival point (except CP0, which map clicks jump to 0vh manually if we want, or rather checkpoint-snap-0 is P0 arrival which is 0vh)
             id: (i === 0 && photoIdx === 0) || isCPArrival ? `checkpoint-snap-${i}` : undefined,
             vh: arrivalVH
           };
         });
-        
+
         return snaps;
       }).map((snap, globalIdx) => (
         <div

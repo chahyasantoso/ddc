@@ -1,6 +1,6 @@
 import { useTransform, type MotionValue } from 'framer-motion';
 import { SCROLL_CONFIG } from '../lib/scrollUtils';
-import { ScrollSlide } from './ScrollSlide';
+import { StackSlide } from './StackSlide';
 import type { Photo } from '../lib/types.client';
 
 // ── Direction & Rotation lookups for photos ───────────────────────────────────
@@ -52,12 +52,17 @@ export function PhotoSlide({
   const nextArriveStart = startVH + getOffset(absoluteIndex + 1);
   const nextArriveEnd = nextArriveStart + SLICE_VH;
 
-  // 0: hidden, 1: perfectly revealed, 2: covered by the next photo
-  // If there's a gap before the next photo, Math.max ensures the hold state at '1' elongates
+  // 0: hidden, 1: perfectly revealed, >1: pushed back in the stack
+  // If there's a gap before the next photo, it holds at 1. Then it grows as subsequent photos arrive.
   const localReveal = useTransform(
     smoothVH, 
-    [arriveStart, arriveEnd, Math.max(arriveEnd, nextArriveStart), nextArriveEnd], 
-    [0, 1, 1, 2]
+    (vh) => {
+      if (vh < arriveStart) return 0;
+      if (vh <= Math.max(arriveEnd, nextArriveStart)) {
+        return Math.min(1, (vh - arriveStart) / SLICE_VH);
+      }
+      return 1 + (vh - Math.max(arriveEnd, nextArriveStart)) / SLICE_VH;
+    }
   );
 
   // Combine local scroll slice progress with the macro checkpoint reveal 
@@ -87,7 +92,7 @@ export function PhotoSlide({
   const rotate = photo.is_backdrop ? 0 : [3, -2, 4, -4, 2][absoluteIndex % 5];
 
   return (
-    <ScrollSlide
+    <StackSlide
       reveal={finalReveal}
       revealDx={dx}
       revealDy={dy}
@@ -124,6 +129,6 @@ export function PhotoSlide({
           </div>
         )}
       </div>
-    </ScrollSlide>
+    </StackSlide>
   );
 }

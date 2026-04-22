@@ -10,6 +10,7 @@ export interface PhotoAlbumProps {
   total: number;
   smoothVH: MotionValue<number>;
   entryProgress: MotionValue<number>;
+  exitStyle?: 'default' | 'ambyar';
 }
 
 export function usePhotoAlbumAnimation({
@@ -21,64 +22,91 @@ export function usePhotoAlbumAnimation({
 }: PhotoAlbumProps) {
   const { SLICE_VH } = SCROLL_CONFIG;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 1. TIMELINE — Define when each phase starts and ends (in scroll-vh units)
+  // ═══════════════════════════════════════════════════════════════════════════
   const startVH = getCheckpointStartVH(scrollables, i);
   const budgetVH = sliceCount(scrollables[i], i) * SLICE_VH;
-  const endVH = startVH + budgetVH;
+  const endVH = startVH + budgetVH; // When the last photo has been scrolled past
+  const exitEndVH = endVH + SLICE_VH;   // When the exit animation finishes
+  const isLast = i === total - 1;    // Last checkpoint never scrolls out
 
-  // InfoCard and Photo 0 always start arriving immediately alongside the map pan
-  const photoStartVH = startVH;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 2. ENTRY — How the album arrives on screen
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  // ── Album Entry ─────────────────────────────────────────────────────────────
-  // The album drifts UP into its sticky position as the map pans to the marker.
-  // For CP0, we use the special entryProgress; for others, we use the arrival slice.
-  const arrivalSliceVH = i === 0 ? 0 : startVH;
-  const entryStartVH = arrivalSliceVH - SLICE_VH;
-  const entryEndVH = arrivalSliceVH;
-
-  const entryY = useTransform(smoothVH, 
-    [entryStartVH, entryEndVH], 
-    [i === 0 ? '0vh' : '40vh', '0vh']
-  );
-
-  // ── Album Exit ──────────────────────────────────────────────────────────────
-  // When vh exceeds endVH (after all photos), the entire group scrolls up.
-  // Last checkpoint never scrolls out.
-  const isLast = i === total - 1;
-  const exitEndVH = endVH + SLICE_VH;
-
-  const exitY = useTransform(smoothVH,
-    [endVH, exitEndVH],
-    ['0vh', isLast ? '0vh' : '-80vh']
-  );
-
-  // Combine Entry and Exit into a single Y transform
-  const albumY = useTransform([entryY, exitY], ([eY, xY]) => {
-    // If we are before entry, use entryY; if after end, use exitY
-    const v = smoothVH.get();
-    if (v < entryEndVH) return eY;
-    if (v > endVH) return xY;
-    return '0vh';
-  });
-
-  // Group Opacity: fades out entirely as it moves up during the exit slice.
-  // By fading it over 0.5 of the slice, it hits opacity 0 exactly when it reaches the 50% height of the screen.
-  const groupOpacity = useTransform(smoothVH,
-    [endVH, endVH + (SLICE_VH * 0.5)],
-    [1, isLast ? 1 : 0]
-  );
-
-  // InfoCard reveal: fades in from 0 to 1 during [photoStartVH, photoStartVH + 100]
-  // Stays fully revealed until the whole layer moves out (driven via groupY).
-  const reveal = useTransform(smoothVH, [photoStartVH, photoStartVH + SLICE_VH], [0, 1]);
-
-  // Combine with entry sequence for the very first checkpoint
-  // Instead of multiplying, the first checkpoint's reveal relies entirely on the map's entry (ep)
-  const gatedReveal = useTransform([reveal, entryProgress], ([raw, ep]) => {
+  // Master reveal signal (0→1): drives PhotoSlide entry animations.
+  // CP0 is gated on the map's own entry zoom, not scroll position.
+  const rawReveal = useTransform(smoothVH, [startVH, startVH + SLICE_VH], [0, 1]);
+  const gatedReveal = useTransform([rawReveal, entryProgress], ([raw, ep]) => {
     if (i === 0) return ep as number;
     return raw as number;
   });
 
-  const infoY = useTransform(gatedReveal, (r) => (1 - r) * 20);
+  // Photo stack drifts up into position as the map pans to the marker.
+  const entryStartVH = (i === 0 ? 0 : startVH) - SLICE_VH;
+  const entryEndVH = i === 0 ? 0 : startVH;
+  const entryY = useTransform(smoothVH,
+    [entryStartVH, entryEndVH],
+    [i === 0 ? '0vh' : '40vh', '0vh']
+  );
 
-  return { groupY: albumY, groupOpacity, gatedReveal, infoY };
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 3. EXIT — How the album leaves the screen
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Single exit progress signal (0 = resting, 1 = fully exited).
+  // All exit animations are derived from this — Y and opacity stay in sync automatically.
+  const albumExitProgress = useTransform(smoothVH, [endVH, exitEndVH], [0, isLast ? 0 : 1]);
+
+  // Photo stack: drift up and fade — both driven by the same progress, perfectly in sync.
+  const photoExitY = useTransform(albumExitProgress, p => `${-p * 20}vh`);
+  const photoExitOpacity = useTransform(albumExitProgress, p => 1 - p);
+
+  // Info card lifecycle signal (0→1→2) fed directly to ScrollSlide.
+  // ScrollSlide handles entry (entryDx) and exit (exitDx) by itself.
+  const rawInfoReveal = useTransform(smoothVH,
+    [startVH, startVH + SLICE_VH, endVH, exitEndVH],
+    [0, 1, 1, isLast ? 1 : 2]
+  );
+  // CP0: entry phase is gated on map zoom; exit phase always uses scroll.
+  const infoCardReveal = useTransform([rawInfoReveal, entryProgress], ([raw, ep]) => {
+    const rawVal = raw as number;
+    if (i === 0 && rawVal <= 1) return ep as number;
+    return rawVal;
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 4. COMPOSE — Bundle into per-element style objects
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Outer wrapper: only handles z-index layering and visibility gating.
+  const wrapperStyle = {
+    position: 'absolute' as const,
+    inset: 0,
+    zIndex: i * 10,
+    pointerEvents: 'none' as const,
+    visibility: useTransform(gatedReveal, r => r > 0.01 ? 'visible' : 'hidden') as MotionValue<any>,
+  };
+
+  // Photo stack: drifts in on entry, slides up and fades on exit.
+  const photoStackStyle = {
+    y: useTransform([entryY, photoExitY], ([eY, xY]) => {
+      const v = smoothVH.get();
+      if (v < entryEndVH) return eY;
+      if (v > endVH) return xY;
+      return '0vh';
+    }),
+    opacity: photoExitOpacity,
+  };
+
+  return {
+    // ── Per-element styles (apply directly to motion.div) ──────────────────
+    wrapperStyle,
+    photoStackStyle,
+    // ── Signals for child components ───────────────────────────────────────
+    gatedReveal,        // → PhotoSlide (checkpointReveal)
+    infoCardReveal,     // → ScrollSlide reveal (lifecycle 0→1→2, handles entry + exit)
+    albumExitProgress,  // → AmbyarScatter (exitProgress), when exitStyle='ambyar'
+  };
 }

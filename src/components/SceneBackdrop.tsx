@@ -1,4 +1,4 @@
-import { useTransform, motion, type MotionValue, useMotionValueEvent } from 'framer-motion';
+import { motion, type MotionValue, useMotionValueEvent, useTransform } from 'framer-motion';
 import { useState } from 'react';
 
 interface SceneBackdropProps {
@@ -40,10 +40,10 @@ export function SceneBackdrop({
   const parallaxTranslateY = useTransform(parallaxY, (v) => `${v}vh`);
 
   const parallaxScale = useTransform(smoothVH, (vh) => {
-    if (vh < entryStartVH) return 1.0;
+    if (vh < entryStartVH) return 1.15;
     const totalRange = exitStartVH - entryStartVH;
     const progress = Math.min(1, Math.max(0, (vh - entryStartVH) / totalRange));
-    return 1.0 + (progress * 0.15); // 1.0 -> 1.15
+    return 1.15 - (progress * 0.15); // 1.15 -> 1.0 (Zoom Out)
   });
 
   return (
@@ -55,7 +55,7 @@ export function SceneBackdrop({
         visible: { y: '0vh', opacity: 1 },
         exited: { y: '100vh', opacity: 0 },
       }}
-      transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }} 
+      transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
       style={{
         position: 'absolute',
         inset: 0,
@@ -69,12 +69,11 @@ export function SceneBackdrop({
         alt=""
         style={{
           position: 'absolute',
-          inset: '-20vh -5vw',
           width: '110vw',
           height: '140vh',
           objectFit: 'cover',
-          translateY: parallaxTranslateY, 
-          scale: parallaxScale,           
+          translateY: parallaxTranslateY,
+          scale: parallaxScale,
           willChange: 'transform',
         }}
       />
