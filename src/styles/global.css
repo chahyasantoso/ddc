@@ -160,7 +160,8 @@ body::before {
    ══════════════════════════════════════════════════════════════════════════ */
 
 .hud-bar {
-  position: absolute;
+  position: fixed;
+  z-index: 10;
   top: 0;
   left: 0;
   right: 0;
@@ -303,4 +304,8 @@ body::before {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.ns-empty-msg {
+  color: var(--text-muted);
 }

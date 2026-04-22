@@ -10,14 +10,16 @@ import {
   toScrollables,
   triggerScrollyJump
 } from '../lib/scrollUtils';
-import type { Checkpoint } from '../lib/types.client';
+import type { Checkpoint, ActiveModal } from '../lib/types.client';
+import type { CheckpointCoord } from '../lib/mapUtils';
 import { InteractiveMap } from './InteractiveMap';
 import { PhotoAlbum } from './PhotoAlbum';
+import { PhotoModal } from './PhotoModal';
 import { SceneBackdrop } from './SceneBackdrop';
 
-interface Props {
-  checkpoints: Checkpoint[];
-  mapCheckpoints?: { id: number; location_name: string; lat: number; lng: number }[];
+interface ScrollytellingUIProps {
+  checkpoints   : Checkpoint[];
+  mapCheckpoints?: CheckpointCoord[];
 }
 
 /**
@@ -30,9 +32,10 @@ interface Props {
  *   that checkpoint's scroll budget. The map marker stays pinned until the
  *   last photo has been revealed.
  */
-export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
+export function ScrollytellingUI({ checkpoints, mapCheckpoints }: ScrollytellingUIProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapIsReady, setMapIsReady] = React.useState(false);
+  const [activeModal, setActiveModal] = React.useState<ActiveModal | null>(null);
   const mapControls = useAnimation();
 
   const { scrollYProgress } = useScroll({
@@ -78,28 +81,37 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
     prevVH.current = smoothVH.get();
   }, [smoothVH]);
 
-  // Use triggered animation rather than perfectly matched scroll frames
+  // Use robust state-based animation for map displacement
   useMotionValueEvent(smoothVH, 'change', (vh) => {
     const pVH = prevVH.current;
+    if (vh === pVH) return;
 
-    for (const range of mapDisplacementRanges) {
-      // Crossing 'start' downwards -> map exits down
-      if (pVH < range.start && vh >= range.start) {
-        mapControls.start({ y: '100vh', transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
-      }
-      // Crossing 'start' upwards -> map enters from bottom (100vh -> 0)
-      else if (pVH >= range.start && vh < range.start) {
-        mapControls.set({ y: '100vh' });
-        mapControls.start({ y: '0vh', transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
-      }
-      // Crossing 'end' downwards -> map enters from top (-100vh -> 0)
-      else if (pVH < range.end && vh >= range.end) {
-        mapControls.set({ y: '-100vh' });
-        mapControls.start({ y: '0vh', transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
-      }
-      // Crossing 'end' upwards -> map exits up (0 -> -100vh)
-      else if (pVH >= range.end && vh < range.end) {
-        mapControls.start({ y: '-100vh', transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
+    // Check if map should currently be hidden by a scene
+    const currentRange = mapDisplacementRanges.find(r => vh >= r.start && vh < r.end);
+    const prevRange = mapDisplacementRanges.find(r => pVH >= r.start && pVH < r.end);
+
+    // If we jump more than 50vh instantly, we skip the animation to avoid jarring fast-forwards
+    const isJump = Math.abs(vh - pVH) > 50;
+
+    // Only animate when the hidden state actually changes
+    if (!!currentRange !== !!prevRange) {
+      if (!prevRange && currentRange) {
+        // Map needs to exit
+        const exitY = vh > pVH ? '100vh' : '-100vh';
+        if (isJump) {
+          mapControls.set({ y: exitY });
+        } else {
+          mapControls.start({ y: exitY, transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
+        }
+      } else if (prevRange && !currentRange) {
+        // Map needs to enter
+        const enterStart = vh > pVH ? '-100vh' : '100vh';
+        if (isJump) {
+          mapControls.set({ y: '0vh' });
+        } else {
+          mapControls.set({ y: enterStart });
+          mapControls.start({ y: '0vh', transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } });
+        }
       }
     }
 
@@ -110,10 +122,9 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
     (targetIdx: number) => {
       // Always use the teleport jump when clicking a map marker.
       // Smooth scrolling through a long adjacent album feels like a bug.
-      const isSequential = false;
-      triggerScrollyJump(targetIdx, isSequential);
+      triggerScrollyJump(targetIdx, false);
     },
-    [smoothVH, scrollables],
+    [], // stable — triggerScrollyJump reads DOM directly, no captured deps needed
   );
 
   // Notify the splash screen once we are visually and mathematically ready
@@ -140,9 +151,12 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
 
         const snaps = cp.photos.map((_, photoIdx) => {
           const isCPArrival = i > 0 && photoIdx === 0;
-          // Checkpoint 0 is shifted left by 1 slice, so its arrival points are (photoIdx) * 100vh
-          // instead of (photoIdx + 1) * 100vh.
-          const arrivalVH = startVH + (i === 0 ? photoIdx : photoIdx + 1) * SCROLL_CONFIG.SLICE_VH;
+          const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
+          const budget = SLICE_VH + REST_VH;
+          
+          // Checkpoint 0 is shifted left by 1 slice, so its arrival points are (photoIdx) * BUDGET
+          // instead of (photoIdx + 1) * BUDGET.
+          const arrivalVH = startVH + (i === 0 ? photoIdx : photoIdx + 1) * budget;
 
           return {
             // For jumps, we anchor to the first photo's arrival point (except CP0, which map clicks jump to 0vh manually if we want, or rather checkpoint-snap-0 is P0 arrival which is 0vh)
@@ -169,15 +183,10 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
         {/* The map canvas itself handles marker clicks internally via maplibre.    */}
         {mapCheckpoints && (
           <motion.div
+            className="map-motion-wrapper"
             style={{
-              position: 'absolute',
-              inset: 0,
               scale: mapScale,
               borderRadius: mapBorderRadius,
-              overflow: 'hidden',
-              transformOrigin: 'center',
-              backgroundColor: '#0f0e0d',
-              pointerEvents: 'none',
             }}
             animate={mapControls}
           >
@@ -224,6 +233,7 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
                 total={checkpoints.length}
                 smoothVH={smoothVH}
                 entryProgress={entryProgress}
+                setActiveModal={setActiveModal}
               />
             ))
           ) : (
@@ -258,9 +268,12 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Props) {
           </svg>
         </button>
       )}
+      {/* ── Photo Modal ────────────────────────────────────────────────────── */}
+      <PhotoModal
+        photo={activeModal?.photo ?? null}
+        rotate={activeModal?.rotate ?? 0}
+        onClose={() => setActiveModal(null)}
+      />
     </div>
   );
 }
-
-
-

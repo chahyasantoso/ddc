@@ -26,6 +26,12 @@
   gap: 24px;
 }
 
+.splash-text-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .splash-logo-container {
   position: relative;
   width: 120px;
@@ -60,6 +66,7 @@
   text-transform: uppercase;
   background: linear-gradient(135deg, var(--text) 0%, color-mix(in srgb, var(--text) 50%, transparent) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 

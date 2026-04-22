@@ -1,16 +1,17 @@
 import { useTransform, type MotionValue } from 'framer-motion';
 import { SCROLL_CONFIG, getCheckpointStartVH, sliceCount, type ScrollableCheckpoint } from '../lib/scrollUtils';
-import type { Checkpoint } from '../lib/types.client';
+import type { ActiveModal, Checkpoint } from '../lib/types.client';
 
 export interface PhotoAlbumProps {
-  cp: Checkpoint;
-  checkpoints: Checkpoint[];
-  scrollables: ScrollableCheckpoint[];
-  i: number;
-  total: number;
-  smoothVH: MotionValue<number>;
+  cp          : Checkpoint;
+  checkpoints : Checkpoint[];
+  scrollables : ScrollableCheckpoint[];
+  i           : number;
+  total       : number;
+  smoothVH    : MotionValue<number>;
   entryProgress: MotionValue<number>;
-  exitStyle?: 'default' | 'ambyar';
+  exitStyle?  : 'default' | 'ambyar';
+  setActiveModal: (val: ActiveModal | null) => void;
 }
 
 export function usePhotoAlbumAnimation({
@@ -20,15 +21,16 @@ export function usePhotoAlbumAnimation({
   smoothVH,
   entryProgress,
 }: PhotoAlbumProps) {
-  const { SLICE_VH } = SCROLL_CONFIG;
+  const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
+  const budget = SLICE_VH + REST_VH;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 1. TIMELINE — Define when each phase starts and ends (in scroll-vh units)
   // ═══════════════════════════════════════════════════════════════════════════
   const startVH = getCheckpointStartVH(scrollables, i);
-  const budgetVH = sliceCount(scrollables[i], i) * SLICE_VH;
+  const budgetVH = sliceCount(scrollables[i], i) * budget;
   const endVH = startVH + budgetVH; // When the last photo has been scrolled past
-  const exitEndVH = endVH + SLICE_VH;   // When the exit animation finishes
+  const exitEndVH = endVH + SLICE_VH;   // When the exit animation finishes (takes 1 slide duration)
   const isLast = i === total - 1;    // Last checkpoint never scrolls out
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -81,17 +83,30 @@ export function usePhotoAlbumAnimation({
   // ═══════════════════════════════════════════════════════════════════════════
 
   // Outer wrapper: only handles z-index layering and visibility gating.
+  const wrapperVisibility = useTransform(
+    [gatedReveal, albumExitProgress],
+    ([reveal, exit]) => {
+      const r = reveal as number;
+      const e = exit as number;
+      if (r <= 0.01) return 'hidden';
+      if (e >= 0.99 && !isLast) return 'hidden';
+      return 'visible';
+    }
+  ) as MotionValue<'visible' | 'hidden'>;
+
   const wrapperStyle = {
     position: 'absolute' as const,
     inset: 0,
     zIndex: i * 10,
     pointerEvents: 'none' as const,
-    visibility: useTransform(gatedReveal, r => r > 0.01 ? 'visible' : 'hidden') as MotionValue<any>,
+    visibility: wrapperVisibility,
   };
 
   // Photo stack: drifts in on entry, slides up and fades on exit.
+  // entryY and photoExitY are both derived from smoothVH, so this transform
+  // already re-runs transitively whenever smoothVH changes.
   const photoStackStyle = {
-    y: useTransform([entryY, photoExitY], ([eY, xY]) => {
+    y: useTransform([entryY, photoExitY], ([eY, xY]: string[]) => {
       const v = smoothVH.get();
       if (v < entryEndVH) return eY;
       if (v > endVH) return xY;

@@ -1,25 +1,7 @@
 import { motion } from 'framer-motion';
+import type { Checkpoint } from '../lib/types.client';
 
-// ── Client-safe types (mirrors db.ts, no server imports) ─────────────────────
-interface Photo {
-  id: number;
-  checkpoint_id: number;
-  photo_url: string;
-  caption: string;
-  order: number;
-}
-
-interface Checkpoint {
-  id: number;
-  location_name: string;
-  lat: number;
-  lng: number;
-  description: string | null;
-  created_at: string;
-  photos: Photo[];
-}
-
-interface Props {
+interface AnimatedCheckpointListProps {
   checkpoints: Checkpoint[];
 }
 
@@ -175,7 +157,7 @@ function CheckpointSection({
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export function AnimatedCheckpointList({ checkpoints }: Props) {
+export function AnimatedCheckpointList({ checkpoints }: AnimatedCheckpointListProps) {
   return (
     <div className="checkpoints-list">
       {checkpoints.map((cp, i) => (

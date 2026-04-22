@@ -5,15 +5,11 @@ import type { Photo } from '../lib/types.client';
 
 // ── Direction & Rotation lookups for photos ───────────────────────────────────
 // Deterministic (no runtime randomness) to avoid hydration mismatches.
-const DIRECTIONS = [
-  //  { dx: 0, dy: -320 }, // top
-  //  { dx: 320, dy: 0 }, // right
-  { dx: 0, dy: 320 }, // bottom
-  //  { dx: -320, dy: 0 }, // left
-] as const;
+// TODO: restore multi-direction support when design calls for it.
+const REVEAL_DIRECTION = { dx: 0, dy: 320 } as const; // bottom
 
-function getDirection(absoluteIndex: number) {
-  return DIRECTIONS[absoluteIndex % DIRECTIONS.length];
+function getDirection(_absoluteIndex: number) {
+  return REVEAL_DIRECTION;
 }
 
 interface PhotoSlideProps {
@@ -39,12 +35,13 @@ export function PhotoSlide({
   parallaxFactor,
   onOpen,
 }: PhotoSlideProps) {
-  const { SLICE_VH } = SCROLL_CONFIG;
+  const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
+  const PHOTO_BUDGET = SLICE_VH + REST_VH;
 
   // Helper to compute offset for any absolute timeline index
   function getOffset(k: number) {
     if (k >= totalItems) return Infinity; // No next item
-    return (k - (index === 0 ? 1 : 0)) * SLICE_VH;
+    return (k - (index === 0 ? 1 : 0)) * PHOTO_BUDGET;
   }
 
   const arriveStart = startVH + getOffset(absoluteIndex);
@@ -106,7 +103,6 @@ export function PhotoSlide({
       <div
         className="ps-peek-face"
         onClick={() => onOpen(rotate)}
-        style={{ cursor: 'pointer' }}
       >
         <div className="fp-frame">
           <img
@@ -122,7 +118,7 @@ export function PhotoSlide({
 
         {photo.caption && (
           <div className="ps-footer">
-            {photo.caption && <p className="ps-caption">{photo.caption}</p>}
+            <p className="ps-caption">{photo.caption}</p>
             <span className="ps-counter">
               {absoluteIndex + 1} / {totalItems}
             </span>

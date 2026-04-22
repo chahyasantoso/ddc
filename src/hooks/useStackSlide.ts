@@ -54,15 +54,15 @@ export function useStackSlide({
   // ── Outer Layer: Position ──────────────────────────────────────────────────
   const translateX = useTransform(t, tVal => dx * tVal * parallaxFactor);
   const translateY = useTransform(t, tVal => dy * tVal * parallaxFactor);
-  const scale      = useTransform(clampedReveal, r => revealScaleStart + (1 - revealScaleStart) * r);
+  const scale = useTransform(clampedReveal, r => revealScaleStart + (1 - revealScaleStart) * r);
 
   const opacity = useTransform(reveal, r => {
     if (r <= 1) return Math.max(0, r * baseOpacity);
     // Stack-depth fade: gradually disappear when buried (> 3 layers deep)
     const fadeStart = 3;
-    const fadeEnd   = 5;
+    const fadeEnd = 5;
     if (r <= fadeStart) return baseOpacity;
-    if (r >= fadeEnd)   return 0;
+    if (r >= fadeEnd) return 0;
     return baseOpacity * (1 - (r - fadeStart) / (fadeEnd - fadeStart));
   });
 
@@ -83,14 +83,13 @@ export function useStackSlide({
     return Math.max(0.8, baseScale - (r - 1) * 0.03); // shrink 3% per layer
   });
 
-  const pe = useTransform(reveal, r => r > 0.1 ? 'auto' : 'none') as MotionValue<any>;
+  const pe = useTransform(reveal, r => (r >= 0.5 && r < 1.5) ? 'auto' : 'none') as MotionValue<any>;
 
   return {
     outerStyle: {
       transform: outerTransform,
       opacity,
       willChange: 'transform, opacity',
-      pointerEvents: pe,
     },
     innerStyle: {
       x: baseX,

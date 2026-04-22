@@ -23,8 +23,10 @@
 // ── Tuning constants ──────────────────────────────────────────────────────────
 
 export const SCROLL_CONFIG = {
-  /** Height of one scroll "slice" in viewport-height units. */
+  /** Height of one scroll "slice" (animation duration) in viewport-height units. */
   SLICE_VH: 100,
+  /** Extra 'wait' period after reveal completes in viewport-height units. */
+  REST_VH: 40,
 };
 
 // ── Checkpoint type (minimal shape needed by math helpers) ───────────────────
@@ -52,8 +54,9 @@ export function sliceCount(cp: ScrollableCheckpoint, idx?: number) {
 /** Cumulative scroll offset (in vh) where checkpoint k begins. */
 export function getCheckpointStartVH(checkpoints: ScrollableCheckpoint[], idx: number): number {
   let vh = 0;
+  const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
   for (let i = 0; i < idx; i++) {
-    vh += sliceCount(checkpoints[i], i) * SCROLL_CONFIG.SLICE_VH;
+    vh += sliceCount(checkpoints[i], i) * (SLICE_VH + REST_VH);
   }
   return vh;
 }
@@ -65,8 +68,9 @@ export function getCheckpointStartVH(checkpoints: ScrollableCheckpoint[], idx: n
 export function getTotalVH(checkpoints: ScrollableCheckpoint[]): number {
   if (checkpoints.length === 0) return 100;
   let vh = 0;
+  const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
   for (let i = 0; i < checkpoints.length; i++) {
-    vh += sliceCount(checkpoints[i], i) * SCROLL_CONFIG.SLICE_VH;
+    vh += sliceCount(checkpoints[i], i) * (SLICE_VH + REST_VH);
   }
   return vh + 100;
 }
@@ -77,7 +81,8 @@ export function getTotalVH(checkpoints: ScrollableCheckpoint[]): number {
  */
 export function getCheckpointCenter(checkpoints: ScrollableCheckpoint[], idx: number): number {
   const start = getCheckpointStartVH(checkpoints, idx);
-  const size = sliceCount(checkpoints[idx], idx) * SCROLL_CONFIG.SLICE_VH;
+  const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
+  const size = sliceCount(checkpoints[idx], idx) * (SLICE_VH + REST_VH);
   // Let the user rest somewhere in the middle of the checkpoint's budget
   return start + size * 0.4;
 }
@@ -93,9 +98,11 @@ export function getPhotoRevealVH(
   photoIdx: number,
 ): number {
   const start = getCheckpointStartVH(checkpoints, cpIdx);
-  // Entry slice occupies [start, start + SLICE_VH].
-  // Photo k occupies [(k+1)*SLICE_VH, (k+2)*SLICE_VH] relative to start.
-  return start + (photoIdx + 1) * SCROLL_CONFIG.SLICE_VH + SCROLL_CONFIG.SLICE_VH * 0.5;
+  const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
+  // Each photo + rest takes (SLICE_VH + REST_VH).
+  // Photo k reveal starts at (k+1)*BUDGET relative to start.
+  const budget = SLICE_VH + REST_VH;
+  return start + (photoIdx + 1) * budget + SLICE_VH * 0.5;
 }
 
 /**
@@ -108,8 +115,10 @@ export function getActiveCheckpointIndex(
   currentVH: number,
 ): number {
   let idx = 0;
+  const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
+  const budget = SLICE_VH + REST_VH;
   for (let i = 0; i < checkpoints.length; i++) {
-    const end = getCheckpointStartVH(checkpoints, i) + sliceCount(checkpoints[i], i) * SCROLL_CONFIG.SLICE_VH;
+    const end = getCheckpointStartVH(checkpoints, i) + sliceCount(checkpoints[i], i) * budget;
     if (currentVH < end) {
       idx = i;
       break;

@@ -50,11 +50,7 @@ export function useScrollSlide({
     return baseOpacity * Math.max(0, 2 - r);         // Fade out on exit (1→2)
   });
 
-  const pointerEvents = useTransform(
-    reveal, r => (r > 0.1 && r < 1.9) ? 'auto' : 'none'
-  ) as MotionValue<any>;
-
   return {
-    style: { x, y, scale, opacity, willChange: 'transform, opacity', pointerEvents },
+    style: { x, y, scale, opacity, willChange: 'transform, opacity' },
   };
 }

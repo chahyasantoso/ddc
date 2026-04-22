@@ -21,3 +21,9 @@ export interface Checkpoint {
   created_at    : string;
   photos        : Photo[];
 }
+
+/** Payload for the full-screen photo modal. */
+export interface ActiveModal {
+  photo : Photo;
+  rotate: number;
+}

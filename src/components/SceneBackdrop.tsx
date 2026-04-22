@@ -56,33 +56,20 @@ export function SceneBackdrop({
         exited: { y: '100vh', opacity: 0 },
       }}
       transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
-      style={{
-        position: 'absolute',
-        inset: 0,
-        overflow: 'hidden',
-        willChange: 'transform, opacity',
-      }}
+      className="scene-backdrop-wrapper"
     >
       {/* ── Background Layer ── */}
       <motion.img
         src={imageUrl}
         alt=""
+        className="scene-backdrop-img"
         style={{
-          position: 'absolute',
-          width: '110vw',
-          height: '140vh',
-          objectFit: 'cover',
           translateY: parallaxTranslateY,
           scale: parallaxScale,
-          willChange: 'transform',
         }}
       />
       {/* Dark gradient overlay for readability */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.3) 100%)',
-      }} />
+      <div className="scene-backdrop-overlay" />
     </motion.div>
   );
 }

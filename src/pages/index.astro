@@ -87,7 +87,7 @@ try {
           <div class="splash-glow"></div>
           <div class="splash-moto">🏍️</div>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: center">
+        <div class="splash-text-container">
           <h1 class="splash-title">DDC</h1>
           <p class="splash-tagline">Initializing Journey...</p>
         </div>
@@ -98,7 +98,7 @@ try {
     <HeroSection client:load />
 
     <!-- HUD: top bar with branding -->
-    <div class="hud-bar" style="position: fixed; z-index: 10;">
+    <div class="hud-bar">
       <span class="hud-live-dot"></span>
       <span class="hud-title">DDC</span>
       <span class="hud-subtitle">Live Motorcycle Journal</span>
@@ -128,7 +128,7 @@ try {
         </header>
 
         {checkpoints.length === 0 && (
-          <p style="color: var(--text-muted)">Belum ada checkpoint. Tambahkan via admin panel.</p>
+          <p class="ns-empty-msg">Belum ada checkpoint. Tambahkan via admin panel.</p>
         )}
 
         {checkpoints.map((cp) => (

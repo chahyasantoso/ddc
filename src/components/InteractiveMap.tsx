@@ -11,15 +11,15 @@ import {
   BASE_MAP_STYLE,
   type CheckpointCoord,
 } from '../lib/mapUtils';
+import { type ScrollableCheckpoint } from '../lib/scrollUtils';
 
-// ── Props ─────────────────────────────────────────────────────────────────────
 interface InteractiveMapProps {
-  checkpoints: CheckpointCoord[];
+  checkpoints     : CheckpointCoord[];
   /** Unified timeline source of truth for scrolling interpolation. */
-  scrollables: any[];
-  scrollProgress?: MotionValue<number>;
+  scrollables     : ScrollableCheckpoint[];
+  scrollProgress? : MotionValue<number>;
   onCheckpointClick?: (index: number) => void;
-  onMapLoaded?: () => void;
+  onMapLoaded?    : () => void;
 }
 
 const ZOOM = 7.5;

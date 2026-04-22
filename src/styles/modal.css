@@ -12,8 +12,6 @@
   inset: 0;
   z-index: 9998;
   background: color-mix(in srgb, var(--bg) 80%, transparent);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   cursor: pointer;
 }
 
@@ -27,7 +25,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none; /* Backdrop handles its own clicks */
+  pointer-events: none;
+  /* Backdrop handles its own clicks */
 }
 
 /* ── Panel ────────────────────────────────────────────────────────────────── */
@@ -42,7 +41,8 @@
     0 32px 80px rgba(0, 0, 0, 0.7),
     0 8px 24px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  position: relative; /* anchor for .pm-close */
+  position: relative;
+  /* anchor for .pm-close */
   pointer-events: auto;
 }
 
@@ -78,13 +78,17 @@
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   flex: 1;
-  min-height: 0; /* Critical: allow flex child to scroll */
-  scrollbar-width: none;       /* Firefox */
-  -ms-overflow-style: none;    /* IE/Edge */
+  min-height: 0;
+  /* Critical: allow flex child to scroll */
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE/Edge */
 }
 
 .pm-scroll::-webkit-scrollbar {
-  display: none; /* Chrome/Safari/Opera */
+  display: none;
+  /* Chrome/Safari/Opera */
 }
 
 /* ── Polaroid frame ───────────────────────────────────────────────────────── */
@@ -118,6 +122,7 @@
   font-size: 0.9rem;
   line-height: 1.7;
   color: #2a2420;
-  white-space: pre-wrap; /* Preserve newlines in long captions */
+  white-space: pre-wrap;
+  /* Preserve newlines in long captions */
   margin: 0;
 }

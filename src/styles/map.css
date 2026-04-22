@@ -40,11 +40,11 @@
   z-index: 100;
 }
 
-.map-checkpoint-dot > div {
+.map-checkpoint-dot>div {
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
-.map-checkpoint-dot:hover > div {
+.map-checkpoint-dot:hover>div {
   background-color: var(--accent) !important;
   border-color: var(--text) !important;
 }

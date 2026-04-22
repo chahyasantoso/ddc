@@ -1,20 +1,15 @@
 import { motion } from 'framer-motion';
-import { useState } from 'react';
 import { usePhotoAlbumAnimation, type PhotoAlbumProps } from '../hooks/usePhotoAlbumAnimation';
 import { getCheckpointStartVH } from '../lib/scrollUtils';
-import type { Photo } from '../lib/types.client';
 import { AmbyarScatter } from './AmbyarScatter';
 import { InfoCard } from './InfoCard';
-import { PhotoModal } from './PhotoModal';
 import { PhotoSlide } from './PhotoSlide';
 import { ScrollSlide } from './ScrollSlide';
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function PhotoAlbum(props: PhotoAlbumProps) {
-  const { cp, scrollables, i, total, smoothVH, exitStyle = 'default' } = props;
-
-  const [activeModal, setActiveModal] = useState<{ photo: Photo; rotate: number } | null>(null);
+  const { cp, scrollables, i, total, smoothVH, exitStyle = 'default', setActiveModal } = props;
 
   // All animation logic lives in the hook.
   // Each style/signal maps directly to one element below — no manual wiring needed.
@@ -86,12 +81,6 @@ export function PhotoAlbum(props: PhotoAlbumProps) {
         </ScrollSlide>
       </div>
 
-      {/* ── Photo Modal ────────────────────────────────────────────────────── */}
-      <PhotoModal
-        photo={activeModal?.photo ?? null}
-        rotate={activeModal?.rotate ?? 0}
-        onClose={() => setActiveModal(null)}
-      />
 
     </motion.div>
   );

@@ -149,7 +149,7 @@
   left: 0;
   right: 0;
   height: 40vh;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 @media (min-width: 768px) {
@@ -169,7 +169,7 @@
   top: auto;
   left: 5%;
   right: 5%;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 @media (min-width: 768px) {
@@ -232,7 +232,6 @@
     0 30px 60px rgba(0, 0, 0, 0.4),
     0 10px 20px rgba(0, 0, 0, 0.2),
     inset 0 1px 1px rgba(255, 255, 255, 0.8);
-  pointer-events: auto;
   cursor: pointer;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -475,4 +474,36 @@
   font-size: 0.68rem;
   color: var(--text-faint);
   letter-spacing: 0.04em;
+}
+
+/* ── Scene Backdrop ──────────────────────────────────────────────────────── */
+.scene-backdrop-wrapper {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  will-change: transform, opacity;
+}
+
+.scene-backdrop-img {
+  position: absolute;
+  width: 110vw;
+  height: 140vh;
+  object-fit: cover;
+  will-change: transform;
+}
+
+.scene-backdrop-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.3) 100%);
+}
+
+/* ── Map Motion Wrapper ──────────────────────────────────────────────────── */
+.map-motion-wrapper {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  transform-origin: center;
+  background-color: #0f0e0d;
+  pointer-events: none;
 }
