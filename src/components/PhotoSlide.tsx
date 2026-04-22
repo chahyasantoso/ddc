@@ -1,7 +1,7 @@
 import { useTransform, type MotionValue } from 'framer-motion';
 import { SCROLL_CONFIG } from '../lib/scrollUtils';
 import { StackSlide } from './StackSlide';
-import type { Photo } from '../lib/types.client';
+import type { Photo, AnimationDirective } from '../lib/types.client';
 
 // ── Direction & Rotation lookups for photos ───────────────────────────────────
 // Deterministic (no runtime randomness) to avoid hydration mismatches.
@@ -14,10 +14,10 @@ function getDirection(_absoluteIndex: number) {
 
 interface PhotoSlideProps {
   photo: Photo;
-  absoluteIndex: number; // Absolute index in the unified timeline
-  totalItems: number;    // Total photos + backdrops
+  directive: AnimationDirective;
+  absoluteIndex: number; // For visual rotation and counter
+  totalItems: number;    // For counter
   index: number;         // Checkpoint index
-  startVH: number;       // Base map pan end
   smoothVH: MotionValue<number>;
   checkpointReveal: MotionValue<number>;
   parallaxFactor?: number;
@@ -26,39 +26,37 @@ interface PhotoSlideProps {
 
 export function PhotoSlide({
   photo,
+  directive,
   absoluteIndex,
   totalItems,
   index,
-  startVH,
   smoothVH,
   checkpointReveal,
   parallaxFactor,
   onOpen,
 }: PhotoSlideProps) {
-  const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
-  const PHOTO_BUDGET = SLICE_VH + REST_VH;
-
-  // Helper to compute offset for any absolute timeline index
-  function getOffset(k: number) {
-    if (k >= totalItems) return Infinity; // No next item
-    return (k - (index === 0 ? 1 : 0)) * PHOTO_BUDGET;
-  }
-
-  const arriveStart = startVH + getOffset(absoluteIndex);
-  const arriveEnd = arriveStart + SLICE_VH;
-  const nextArriveStart = startVH + getOffset(absoluteIndex + 1);
-  const nextArriveEnd = nextArriveStart + SLICE_VH;
+  const { SLICE_VH } = SCROLL_CONFIG;
+  const { startVH, endVH, coverVH } = directive;
 
   // 0: hidden, 1: perfectly revealed, >1: pushed back in the stack
-  // If there's a gap before the next photo, it holds at 1. Then it grows as subsequent photos arrive.
+  // The logic is now purely driven by the directive's VH ranges.
   const localReveal = useTransform(
     smoothVH, 
     (vh) => {
-      if (vh < arriveStart) return 0;
-      if (vh <= Math.max(arriveEnd, nextArriveStart)) {
-        return Math.min(1, (vh - arriveStart) / SLICE_VH);
+      if (vh < startVH) return 0;
+      
+      // Phase 1: Revealing (0 -> 1)
+      if (vh <= endVH) {
+        return (vh - startVH) / SLICE_VH;
       }
-      return 1 + (vh - Math.max(arriveEnd, nextArriveStart)) / SLICE_VH;
+
+      // Phase 2: Resting (at 1) until covered
+      if (!coverVH || vh <= coverVH) {
+        return 1;
+      }
+
+      // Phase 3: Being covered (1 -> 2)
+      return 1 + (vh - coverVH) / SLICE_VH;
     }
   );
 

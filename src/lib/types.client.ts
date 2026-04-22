@@ -27,3 +27,22 @@ export interface ActiveModal {
   photo : Photo;
   rotate: number;
 }
+
+/** 
+ * Central contract for scrollytelling animations. 
+ * Decouples the content from the scroll timeline.
+ */
+export interface AnimationDirective {
+  id: string;
+  type: 'photo' | 'backdrop';
+  /** When the animation 0->1 starts */
+  startVH: number;
+  /** When the animation 0->1 finishes (fully revealed) */
+  endVH: number;
+  /** For photos: when the NEXT polaroid starts its animation (start of push-back) */
+  coverVH?: number;
+  /** For backdrops: when the next backdrop starts to entry (or checkpoint ends) */
+  exitStartVH?: number;
+  /** For backdrops: when the exit animation should be finished */
+  exitEndVH?: number;
+}

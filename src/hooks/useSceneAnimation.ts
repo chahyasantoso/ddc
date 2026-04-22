@@ -1,5 +1,6 @@
 import { type MotionValue } from 'framer-motion';
-import { SCROLL_CONFIG, getCheckpointStartVH, sliceCount, type ScrollableCheckpoint } from '../lib/scrollUtils';
+import { getCheckpointStartVH, sliceCount, type ScrollableCheckpoint, SCROLL_CONFIG } from '../lib/scrollUtils';
+import { planCheckpointTimeline } from '../lib/timeline';
 import type { Checkpoint } from '../lib/types.client';
 
 interface UseSceneAnimationProps {
@@ -21,50 +22,42 @@ export interface SceneRange {
 }
 
 export function useSceneAnimation({ checkpoints, scrollables }: UseSceneAnimationProps) {
-  const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
-  const budget = SLICE_VH + REST_VH;
-
   const sceneRanges: SceneRange[] = [];
   const mapDisplacementRanges: { start: number; end: number }[] = [];
 
   checkpoints.forEach((cp, i) => {
     const startVH = getCheckpointStartVH(scrollables, i);
-    const totalSlices = sliceCount(scrollables[i], i);
-    const endVH = startVH + totalSlices * budget;
-
-    const backdrops = (cp.photos || [])
-      .map((photo, index) => ({ photo, index }))
-      .filter((item) => item.photo.is_backdrop === 1);
-
+    const directives = planCheckpointTimeline(cp, startVH, i, scrollables);
+    
+    const backdrops = directives.filter(d => d.type === 'backdrop');
     if (backdrops.length === 0) return;
 
     // Map must be displaced entirely while ANY backdrop is active
-    const firstBackdropEntryStartVH = startVH + (backdrops[0].index - (i === 0 ? 1 : 0)) * budget;
+    // endVH for the checkpoint is (startVH + budget_for_all_slices)
+    const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
+    const endVH = startVH + sliceCount(scrollables[i], i) * (SLICE_VH + REST_VH);
+
     mapDisplacementRanges.push({
-      start: firstBackdropEntryStartVH,
+      start: backdrops[0].startVH,
       end: endVH,
     });
 
-    backdrops.forEach((b, idx) => {
-      const entryStartVH = startVH + (b.index - (i === 0 ? 1 : 0)) * budget;
-      const entryEndVH = entryStartVH + SLICE_VH;
-
-      const nextBackdrop = backdrops[idx + 1];
-      const exitStartVH = nextBackdrop
-        ? startVH + (nextBackdrop.index - (i === 0 ? 1 : 0)) * budget
-        : endVH;
-      const exitEndVH = exitStartVH + SLICE_VH;
+    backdrops.forEach((d) => {
+      // Find the original photo object to get the URL
+      // (Directives are mapped 1:1 to cp.photos)
+      const photoIdx = directives.indexOf(d);
+      const photo = cp.photos[photoIdx];
 
       sceneRanges.push({
         cp,
         i,
-        imageUrl: b.photo.photo_url,
-        imageIndex: b.index,
+        imageUrl: photo.photo_url,
+        imageIndex: photoIdx,
         startVH,
-        entryStartVH,
-        entryEndVH,
-        exitStartVH,
-        exitEndVH,
+        entryStartVH: d.startVH,
+        entryEndVH: d.endVH,
+        exitStartVH: d.exitStartVH ?? endVH,
+        exitEndVH: d.exitEndVH ?? (endVH + SLICE_VH),
       });
     });
   });

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { usePhotoAlbumAnimation, type PhotoAlbumProps } from '../hooks/usePhotoAlbumAnimation';
 import { getCheckpointStartVH } from '../lib/scrollUtils';
+import { planCheckpointTimeline } from '../lib/timeline';
 import { AmbyarScatter } from './AmbyarScatter';
 import { InfoCard } from './InfoCard';
 import { PhotoSlide } from './PhotoSlide';
@@ -10,6 +11,10 @@ import { ScrollSlide } from './ScrollSlide';
 
 export function PhotoAlbum(props: PhotoAlbumProps) {
   const { cp, scrollables, i, total, smoothVH, exitStyle = 'default', setActiveModal } = props;
+
+  // Generate explicit animation directives for the entire checkpoint once
+  const startVH = getCheckpointStartVH(scrollables, i);
+  const directives = planCheckpointTimeline(cp, startVH, i, scrollables);
 
   // All animation logic lives in the hook.
   // Each style/signal maps directly to one element below — no manual wiring needed.
@@ -21,8 +26,6 @@ export function PhotoAlbum(props: PhotoAlbumProps) {
     albumExitProgress,  // → AmbyarScatter signal (only when exitStyle='ambyar')
   } = usePhotoAlbumAnimation(props);
 
-  const startVH = getCheckpointStartVH(scrollables, i);
-
   return (
     <motion.div style={wrapperStyle}>
 
@@ -33,14 +36,16 @@ export function PhotoAlbum(props: PhotoAlbumProps) {
             {cp.photos.map((photo, absoluteIdx) => {
               if (photo.is_backdrop === 1) return null;
 
+              const directive = directives[absoluteIdx];
+
               const slide = (
                 <PhotoSlide
                   key={`photo-${photo.id}`}
                   photo={photo}
+                  directive={directive}
                   absoluteIndex={absoluteIdx}
                   totalItems={cp.photos.length}
                   index={i}
-                  startVH={startVH}
                   smoothVH={smoothVH}
                   checkpointReveal={gatedReveal}
                   parallaxFactor={0.5 + absoluteIdx * 0.1}
