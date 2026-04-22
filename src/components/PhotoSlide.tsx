@@ -51,7 +51,7 @@ export function PhotoSlide({
       }
 
       // Phase 2: Resting (at 1) until covered
-      if (!coverVH || vh <= coverVH) {
+      if (coverVH === undefined || vh <= coverVH) {
         return 1;
       }
 
@@ -67,24 +67,22 @@ export function PhotoSlide({
       const prVal = pr as number;
       const crVal = cr as number;
 
-      // The FIRST photo of ANY checkpoint uses checkpointReveal as its primary signal.
-      // This guarantees it's visible (reveal=1) as soon as the checkpoint opens, 
-      // whether via normal scroll or a jump. localReveal only pushes it to 2 (the
-      // "covered/tilted" state) when the next photo arrives on top.
-      if (absoluteIndex === 0) {
-        // Special case for CP0 Photo 0: During the map entry zoom, crVal goes 0->1 while prVal is ALREADY 1
-        // because we shifted its slice schedule left to -100vh. We must force it to use crVal so we see the fly-in!
-        if (index === 0 && crVal < 0.999) {
-          return crVal;
-        }
-        return Math.max(crVal, prVal);
+      // The FIRST photo of the FIRST checkpoint (CP0) needs special handling 
+      // because its arrival happens in 'negative' scroll time (during map zoom).
+      // We use a simple product: at scroll 0, prVal is 1.0, so it follows crVal (zoom).
+      // Once zoomed (crVal=1), it follows prVal (scroll) perfectly.
+      if (index === 0 && absoluteIndex === 0) {
+        return prVal * crVal;
       }
+
+      // For every other photo, the Directive-driven localReveal is the boss.
+      // We gate it with crVal (0->1) to ensure the album fades in/out with the checkpoint.
       return prVal * Math.min(1, crVal);
     }
   );
 
   const { dx, dy } = getDirection(absoluteIndex);
-  const rotate = photo.is_backdrop ? 0 : [3, -2, 4, -4, 2][absoluteIndex % 5];
+  const rotate = photo.is_backdrop ? 0 : [6, -5, 8, -7, 4][absoluteIndex % 5];
 
   return (
     <StackSlide
