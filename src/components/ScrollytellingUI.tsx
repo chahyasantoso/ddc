@@ -154,9 +154,11 @@ export function ScrollytellingUI({ checkpoints, mapCheckpoints }: Scrollytelling
           const { SLICE_VH, REST_VH } = SCROLL_CONFIG;
           const budget = SLICE_VH + REST_VH;
           
-          // Checkpoint 0 is shifted left by 1 slice, so its arrival points are (photoIdx) * BUDGET
-          // instead of (photoIdx + 1) * BUDGET.
-          const arrivalVH = startVH + (i === 0 ? photoIdx : photoIdx + 1) * budget;
+          // Checkpoint 0 Photo 0 is pre-arrived (offset -1).
+          const offsetIdx = (i === 0 && photoIdx === 0) ? -1 : photoIdx;
+          // The snap point should be exactly when the photo finishes arriving (which is the start of the REST phase)
+          // Actually, we want to snap to when the photo is fully visible, which is arriveStart + SLICE_VH
+          const arrivalVH = startVH + offsetIdx * budget + SLICE_VH;
 
           return {
             // For jumps, we anchor to the first photo's arrival point (except CP0, which map clicks jump to 0vh manually if we want, or rather checkpoint-snap-0 is P0 arrival which is 0vh)

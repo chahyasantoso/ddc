@@ -6,6 +6,7 @@ import { AmbyarScatter } from './AmbyarScatter';
 import { InfoCard } from './InfoCard';
 import { PhotoSlide } from './PhotoSlide';
 import { ScrollSlide } from './ScrollSlide';
+import { FloatingCaption } from './FloatingCaption';
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
@@ -29,10 +30,23 @@ export function PhotoAlbum(props: PhotoAlbumProps) {
   return (
     <motion.div style={wrapperStyle}>
 
-      {/* ── Photo Stack ────────────────────────────────────────────────────── */}
+      {/* ── Photo Stack & Title ──────────────────────────────────────────────── */}
       {cp.photos.length > 0 && (
-        <motion.div className="photo-stack-wrapper" style={photoStackStyle}>
-          <div className="ps-deck">
+        <motion.div className="photo-stack-wrapper pointer-events-none" style={photoStackStyle}>
+          
+          {/* Simple Inline Checkpoint Title */}
+          <ScrollSlide
+            reveal={infoCardReveal}
+            entryDx={0}
+            exitDy={0}
+            entryScaleStart={1}
+            zIndex={100}
+            className="checkpoint-inline-title"
+          >
+            <InfoCard checkpoint={cp} index={i} total={total} />
+          </ScrollSlide>
+
+          <div className="ps-deck pointer-events-auto">
             {cp.photos.map((photo, absoluteIdx) => {
               if (photo.is_backdrop === 1) return null;
 
@@ -71,22 +85,22 @@ export function PhotoAlbum(props: PhotoAlbumProps) {
         </motion.div>
       )}
 
-      {/* ── Info Card ──────────────────────────────────────────────────────── */}
-      {/* ScrollSlide owns the full lifecycle: enters from left (entryDx), exits to right (exitDx) */}
-      <div className="checkpoint-info-zone pointer-events-none">
-        <ScrollSlide
-          reveal={infoCardReveal}
-          entryDx={-200}
-          exitDy={-200}
-          entryScaleStart={1.05}
-          zIndex={50}
-          className="info-card-parallax-wrapper"
-        >
-          <InfoCard checkpoint={cp} index={i} total={total} />
-        </ScrollSlide>
-      </div>
-
-
-    </motion.div>
+      {/* ── Floating Captions ──────────────────────────────────────────────── */}
+      <div className="floating-captions-container pointer-events-none">
+        {cp.photos.map((photo, absoluteIdx) => {
+          if (!photo.caption) return null;
+          return (
+            <FloatingCaption
+              key={`caption-${photo.id}`}
+              caption={photo.caption}
+              directive={directives[absoluteIdx]}
+              smoothVH={smoothVH}
+              checkpointReveal={gatedReveal}
+              checkpointIndex={i}
+              absoluteIndex={absoluteIdx}
+            />
+          );
+        })}
+      </div>    </motion.div>
   );
 }

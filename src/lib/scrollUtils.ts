@@ -26,7 +26,7 @@ export const SCROLL_CONFIG = {
   /** Height of one scroll "slice" (animation duration) in viewport-height units. */
   SLICE_VH: 100,
   /** Extra 'wait' period after reveal completes in viewport-height units. */
-  REST_VH: 40,
+  REST_VH: 200,
 };
 
 // ── Checkpoint type (minimal shape needed by math helpers) ───────────────────
@@ -46,9 +46,8 @@ export function toScrollables(checkpoints: any[]): ScrollableCheckpoint[] {
 
 export function sliceCount(cp: ScrollableCheckpoint, idx?: number) {
   const c = cp.photoCount;
-  // If it's the first checkpoint, map pan takes 0 time, so we need 1 fewer slice
-  // Total slices = number of items (c)
-  return idx === 0 ? Math.max(1, c - 1) : Math.max(1, c);
+  // Previously we subtracted 1 for CP0. But CP0 Photo 0 still needs its rest/caption budget!
+  return Math.max(1, c);
 }
 
 /** Cumulative scroll offset (in vh) where checkpoint k begins. */

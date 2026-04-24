@@ -36,7 +36,7 @@ export const PATCH: APIRoute = async ({ request, params }) => {
     });
   } catch (err) {
     console.error('[PATCH /api/checkpoints/:id]', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -71,7 +71,7 @@ export const DELETE: APIRoute = async ({ params }) => {
     });
   } catch (err) {
     console.error('[DELETE /api/checkpoints/:id]', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

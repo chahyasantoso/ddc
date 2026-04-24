@@ -76,9 +76,9 @@ export function AdminDashboard({ checkpoints, loading, onRefresh, onLogout }: Ad
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* Stats bar */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           <div className="rounded-xl bg-stone-900 border border-stone-800 p-4">
             <p className="text-xs text-stone-500">Total Checkpoint</p>
             <p className="text-2xl font-bold text-amber-400 mt-1">{checkpoints.length}</p>
@@ -94,10 +94,10 @@ export function AdminDashboard({ checkpoints, loading, onRefresh, onLogout }: Ad
         {/* Add Checkpoint Button */}
         <button
           onClick={() => setShowAddForm(true)}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 border-dashed border-stone-700
+          className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl border-2 border-dashed border-stone-700
                      hover:border-amber-500/50 hover:bg-amber-500/5 text-stone-400 hover:text-amber-400 transition-all group"
         >
-          <span className="text-lg group-hover:scale-110 transition-transform">+</span>
+          <span className="text-xl group-hover:scale-110 transition-transform">+</span>
           <span className="text-sm font-medium">Tambah Checkpoint Baru</span>
         </button>
 
@@ -123,14 +123,14 @@ export function AdminDashboard({ checkpoints, loading, onRefresh, onLogout }: Ad
         )}
 
         {/* Checkpoint list */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           {checkpoints.map((cp, idx) => (
             <div
               key={cp.id}
               className="rounded-xl bg-stone-900 border border-stone-800 overflow-hidden"
             >
               {/* Card header */}
-              <div className="flex items-start gap-3 p-4">
+              <div className="flex items-start gap-4 p-5">
                 {/* Order badge */}
                 <div className="shrink-0 w-7 h-7 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
                   <span className="text-xs font-bold text-amber-400">{idx + 1}</span>
@@ -149,17 +149,17 @@ export function AdminDashboard({ checkpoints, loading, onRefresh, onLogout }: Ad
 
               {/* Photo thumbnails */}
               {cp.photos.length > 0 && (
-                <div className="px-4 pb-3 flex gap-2">
+                <div className="px-5 pb-4 flex gap-3">
                   {cp.photos.slice(0, 4).map((photo) => (
                     <img
                       key={photo.id}
                       src={photo.photo_url}
                       alt={photo.caption}
-                      className="w-12 h-12 rounded-lg object-cover bg-stone-800"
+                      className="w-14 h-14 rounded-lg object-cover bg-stone-800 border border-stone-700"
                     />
                   ))}
                   {cp.photos.length > 4 && (
-                    <div className="w-12 h-12 rounded-lg bg-stone-800 flex items-center justify-center text-xs text-stone-500">
+                    <div className="w-14 h-14 rounded-lg bg-stone-800 border border-stone-700 flex items-center justify-center text-xs text-stone-400 font-medium">
                       +{cp.photos.length - 4}
                     </div>
                   )}
@@ -170,13 +170,13 @@ export function AdminDashboard({ checkpoints, loading, onRefresh, onLogout }: Ad
               <div className="flex border-t border-stone-800 divide-x divide-stone-800">
                 <button
                   onClick={() => setPhotoTarget(cp)}
-                  className="flex-1 py-2.5 text-xs text-stone-400 hover:text-stone-200 hover:bg-stone-800/50 transition-colors flex items-center justify-center gap-1.5"
+                  className="flex-1 py-3 text-sm text-stone-400 hover:text-stone-200 hover:bg-stone-800/50 transition-colors flex items-center justify-center gap-2"
                 >
-                  🖼️ Foto <span className="text-amber-500">({cp.photos.length}/5)</span>
+                  🖼️ Foto <span className="text-amber-500 font-medium">({cp.photos.length}/5)</span>
                 </button>
                 <button
                   onClick={() => setEditingCheckpoint(cp)}
-                  className="flex-1 py-2.5 text-xs text-stone-400 hover:text-stone-200 hover:bg-stone-800/50 transition-colors flex items-center justify-center gap-1.5"
+                  className="flex-1 py-3 text-sm text-stone-400 hover:text-stone-200 hover:bg-stone-800/50 transition-colors flex items-center justify-center gap-2"
                 >
                   ✏️ Edit
                 </button>
@@ -184,16 +184,16 @@ export function AdminDashboard({ checkpoints, loading, onRefresh, onLogout }: Ad
                   <button
                     onClick={() => handleDelete(cp.id)}
                     disabled={deletingId === cp.id}
-                    className="flex-1 py-2.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors flex items-center justify-center gap-1.5"
+                    className="flex-1 py-3 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
                   >
                     {deletingId === cp.id ? (
-                      <span className="inline-block w-3 h-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="inline-block w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
                     ) : 'Yakin hapus?'}
                   </button>
                 ) : (
                   <button
                     onClick={() => setConfirmDeleteId(cp.id)}
-                    className="flex-1 py-2.5 text-xs text-stone-500 hover:text-red-400 hover:bg-red-500/10 transition-colors flex items-center justify-center gap-1.5"
+                    className="flex-1 py-3 text-sm text-stone-500 hover:text-red-400 hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
                   >
                     🗑️ Hapus
                   </button>

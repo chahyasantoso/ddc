@@ -155,9 +155,9 @@
 @media (min-width: 768px) {
   .floating-photos-zone {
     top: 0;
-    right: 0;
+    left: 0;
+    right: auto;
     bottom: 0;
-    left: auto;
     width: 50%;
     height: 100%;
   }
@@ -165,26 +165,33 @@
 
 .photo-stack-wrapper {
   position: absolute;
-  bottom: 10vh;
-  top: auto;
+  top: 0;
+  bottom: 0;
+  margin-block: auto;
+  height: max-content;
   left: 5%;
   right: 5%;
   pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 @media (min-width: 768px) {
   .photo-stack-wrapper {
-    top: 12%;
-    bottom: auto;
+    top: 10vh;
+    bottom: 0;
+    margin-block: auto;
     left: 6%;
     right: 6%;
+    gap: 20px;
   }
 }
 
 .ps-deck {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 3 / 2;
 }
 
 .ps-card {
@@ -204,13 +211,14 @@
   width: 100%;
   height: 100%;
   position: relative;
-  border-radius: 6px;
-  background: #f9f9f9;
-  padding: 16px 16px 70px 16px;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
   box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.65),
-    0 8px 16px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    0 24px 48px rgba(0, 0, 0, 0.4),
+    0 8px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
@@ -227,10 +235,10 @@
   position: relative;
   border-radius: 8px;
   background: #ffffff;
-  padding: 16px 16px 74px 16px;
+  padding: 12px;
   box-shadow:
-    0 30px 60px rgba(0, 0, 0, 0.4),
-    0 10px 20px rgba(0, 0, 0, 0.2),
+    0 30px 60px rgba(0, 0, 0, 0.3),
+    0 10px 20px rgba(0, 0, 0, 0.15),
     inset 0 1px 1px rgba(255, 255, 255, 0.8);
   cursor: pointer;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -365,70 +373,32 @@
   transform: scale(1.2);
 }
 
-/* ── Checkpoint Info Zone & Card ─────────────────────────────────────────── */
-.checkpoint-info-zone {
-  position: absolute;
-  bottom: 75vh;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  pointer-events: none;
-  padding: 0 20px;
-  z-index: 60;
-}
-
-/* ScrollSlide fills inset:0, so we re-center the card inside it */
-.info-card-parallax-wrapper {
+/* ── Checkpoint Inline Title ─────────────────────────────────────────────── */
+.checkpoint-inline-title {
   display: flex !important;
-  justify-content: center;
-  align-items: flex-end;
-  padding: 0 20px;
-}
-
-@media (min-width: 768px) {
-  .info-card-parallax-wrapper {
-    align-items: flex-start;
-    padding: 0 16px;
-  }
-}
-
-@media (min-width: 768px) {
-  .checkpoint-info-zone {
-    top: 15%;
-    bottom: 0;
-    right: 48%;
-    left: auto;
-    width: 420px;
-    padding: 0;
-    margin: 0;
-  }
+  position: relative !important;
+  width: 100%;
 }
 
 .checkpoint-info-card {
   pointer-events: auto;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  backdrop-filter: blur(20px) saturate(1.8);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-  border-radius: 12px;
-  padding: 16px 20px;
-  max-width: 380px;
+  padding: 0 0 4px 0;
   width: 100%;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.6),
-    inset 0 1px 1px var(--border);
-  transition: border-color 0.4s ease;
 }
 
-.checkpoint-info-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+.ci-name {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.01em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(0, 0, 0, 0.6), 0 0 2px rgba(0, 0, 0, 0.5);
 }
 
 @media (min-width: 768px) {
-  .checkpoint-info-card {
-    padding: 16px 20px;
+  .ci-name {
+    font-size: 1.75rem;
   }
 }
 
@@ -495,7 +465,7 @@
 .scene-backdrop-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.3) 100%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.3) 100%);
 }
 
 /* ── Map Motion Wrapper ──────────────────────────────────────────────────── */
@@ -506,4 +476,53 @@
   transform-origin: center;
   background-color: #0f0e0d;
   pointer-events: none;
+}
+
+/* -- Floating Captions ---------------------------------------------------- */
+.floating-captions-container {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+}
+
+.floating-caption-slide {
+  display: flex !important;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 20px 15vh 20px;
+}
+
+.floating-caption-content {
+  width: 100%;
+  max-width: 380px;
+}
+
+.fc-text {
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: #ffffff;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(0, 0, 0, 0.6), 0 0 2px rgba(0, 0, 0, 0.5);
+  line-height: 1.5;
+}
+
+@media (min-width: 768px) {
+  .floating-captions-container {
+    /* floating-photos-zone is width: 50% on the left. 
+       This moves the captions container exactly to the right half of the screen */
+    left: 100%;
+    right: auto;
+    width: 100%;
+  }
+
+  .floating-caption-slide {
+    justify-content: flex-start;
+    padding: 0 0 15vh 12%;
+    /* 12% of the half-screen = 6% of full screen */
+  }
+
+  .floating-caption-content {
+    max-width: 420px;
+  }
 }

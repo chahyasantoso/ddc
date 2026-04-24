@@ -40,7 +40,7 @@ export const DELETE: APIRoute = async ({ params }) => {
     });
   } catch (err) {
     console.error('[DELETE /api/photos/:id]', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -58,7 +58,7 @@ export const PATCH: APIRoute = async ({ request, params }) => {
     }
 
     const body = (await request.json()) as any;
-    const { order, caption } = body;
+    const { order, caption, is_backdrop } = body;
 
     const db = await getDB(env);
     const photo = await db.prepare(`SELECT id FROM photos WHERE id = ?`).bind(id).first();
@@ -75,6 +75,9 @@ export const PATCH: APIRoute = async ({ request, params }) => {
     if (caption != null) {
       await db.prepare(`UPDATE photos SET caption = ? WHERE id = ?`).bind(caption, id).run();
     }
+    if (is_backdrop != null) {
+      await db.prepare(`UPDATE photos SET is_backdrop = ? WHERE id = ?`).bind(is_backdrop ? 1 : 0, id).run();
+    }
 
     const updated = await db.prepare(`SELECT * FROM photos WHERE id = ?`).bind(id).first<Photo>();
 
@@ -84,7 +87,7 @@ export const PATCH: APIRoute = async ({ request, params }) => {
     });
   } catch (err) {
     console.error('[PATCH /api/photos/:id]', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

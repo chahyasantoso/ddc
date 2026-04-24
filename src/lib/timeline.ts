@@ -29,8 +29,9 @@ export function planCheckpointTimeline(
     .map(item => item.idx);
 
   cp.photos.forEach((photo, absoluteIdx) => {
-    // Relative offset from the checkpoint's start
-    const offsetIdx = absoluteIdx - (index === 0 ? 1 : 0);
+    // For CP0 Photo0, it arrives during map zoom (offset = -1).
+    // For all other photos, offset = absoluteIdx.
+    const offsetIdx = (index === 0 && absoluteIdx === 0) ? -1 : absoluteIdx;
     const arriveStart = startVH + offsetIdx * budget;
     const arriveEnd = arriveStart + SLICE_VH;
 
@@ -45,14 +46,19 @@ export function planCheckpointTimeline(
       // Find the next polaroid to determine when this one gets pushed back/covered
       const nextPolaroidIdx = polaroidIndices.find(idx => idx > absoluteIdx);
       if (nextPolaroidIdx !== undefined) {
-        directive.coverVH = startVH + (nextPolaroidIdx - (index === 0 ? 1 : 0)) * budget;
+        // coverVH is based on the arrival of the NEXT photo.
+        // We use the same offset logic for the next photo's arrival time.
+        const nextOffsetIdx = (index === 0 && nextPolaroidIdx === 0) ? -1 : nextPolaroidIdx;
+        directive.coverVH = startVH + nextOffsetIdx * budget;
       }
     } else {
       // Find the next backdrop to determine when this one exits
       const nextBackdrop = cp.photos.find((p, k) => k > absoluteIdx && p.is_backdrop === 1);
-      directive.exitStartVH = nextBackdrop 
-        ? startVH + (cp.photos.indexOf(nextBackdrop) - (index === 0 ? 1 : 0)) * budget
-        : endVH;
+      const nextOffsetIdx = nextBackdrop 
+        ? ((index === 0 && cp.photos.indexOf(nextBackdrop) === 0) ? -1 : cp.photos.indexOf(nextBackdrop))
+        : totalSlices; // fallback to end of checkpoint
+      
+      directive.exitStartVH = startVH + nextOffsetIdx * budget;
       directive.exitEndVH = directive.exitStartVH + SLICE_VH;
     }
 

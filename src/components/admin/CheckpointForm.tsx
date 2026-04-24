@@ -75,7 +75,7 @@ export function CheckpointForm({ editing, onSaved, onCancel }: CheckpointFormPro
       if (res.ok) {
         onSaved();
       } else {
-        const data = await res.json();
+        const data = await res.json() as { error?: string };
         setError(data.error || 'Gagal menyimpan checkpoint');
       }
     } catch {
@@ -89,7 +89,7 @@ export function CheckpointForm({ editing, onSaved, onCancel }: CheckpointFormPro
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
       <div className="w-full sm:max-w-lg bg-stone-900 sm:rounded-2xl rounded-t-2xl border border-stone-700 shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-800">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-stone-800 bg-stone-900/50">
           <h2 className="text-base font-semibold text-stone-100">
             {editing ? '✏️ Edit Checkpoint' : '📍 Tambah Checkpoint'}
           </h2>
@@ -102,7 +102,7 @@ export function CheckpointForm({ editing, onSaved, onCancel }: CheckpointFormPro
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Location Name */}
           <div>
             <label className="block text-xs font-medium text-stone-400 mb-1.5 uppercase tracking-wider">
@@ -195,7 +195,7 @@ export function CheckpointForm({ editing, onSaved, onCancel }: CheckpointFormPro
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-1">
+          <div className="flex gap-4 pt-2">
             <button
               type="button"
               onClick={onCancel}

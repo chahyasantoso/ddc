@@ -21,16 +21,7 @@ export function InfoCard({ checkpoint, index, total }: InfoCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 28 }}
     >
-      <p className="ci-eyebrow">
-        Checkpoint {index + 1} / {total}
-      </p>
       <h2 className="ci-name">{checkpoint.location_name}</h2>
-      {checkpoint.description && (
-        <p className="ci-desc">{checkpoint.description}</p>
-      )}
-      <p className="ci-coords">
-        📍 {checkpoint.lat.toFixed(4)}, {checkpoint.lng.toFixed(4)}
-      </p>
     </motion.div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Photo } from '../../lib/db';
+import { compressImage } from '../../lib/imageOpt';
 
 interface PhotoUploaderProps {
   checkpointId: number;
@@ -12,6 +13,7 @@ interface PendingPhoto {
   file: File;
   preview: string;
   caption: string;
+  isBackdrop: boolean;
 }
 
 export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }: PhotoUploaderProps) {
@@ -28,17 +30,29 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
   const totalCount = managed.length + pending.length;
 
   // ── File picking / drag-drop ─────────────────────────────────────────────
-  function addFiles(files: FileList | null) {
+  async function addFiles(files: FileList | null) {
     if (!files) return;
     const remaining = 5 - totalCount;
     if (remaining <= 0) return;
 
-    const toAdd = Array.from(files).slice(0, remaining).map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-      caption: '',
-    }));
+    const fileArray = Array.from(files).slice(0, remaining);
+    setUploading(true);
+    const toAdd: PendingPhoto[] = [];
+    for (const originalFile of fileArray) {
+      try {
+        const file = await compressImage(originalFile);
+        toAdd.push({
+          file,
+          preview: URL.createObjectURL(file),
+          caption: '',
+          isBackdrop: false,
+        });
+      } catch (err) {
+        console.error('Failed to compress image:', err);
+      }
+    }
     setPending((prev) => [...prev, ...toAdd]);
+    setUploading(false);
   }
 
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
@@ -64,6 +78,10 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
     setPending((prev) => prev.map((p, i) => (i === idx ? { ...p, caption } : p)));
   }
 
+  function togglePendingBackdrop(idx: number) {
+    setPending((prev) => prev.map((p, i) => (i === idx ? { ...p, isBackdrop: !p.isBackdrop } : p)));
+  }
+
   // ── Upload all pending ───────────────────────────────────────────────────
   async function handleUpload() {
     if (pending.length === 0) return;
@@ -72,11 +90,12 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
 
     try {
       for (let i = 0; i < pending.length; i++) {
-        const { file, caption } = pending[i];
+        const { file, caption, isBackdrop } = pending[i];
         const fd = new FormData();
         fd.append('photo', file);
         fd.append('caption', caption);
         fd.append('order', String(managed.length + i));
+        fd.append('is_backdrop', isBackdrop ? '1' : '0');
 
         const res = await fetch(`/api/checkpoints/${checkpointId}/photos`, {
           method: 'POST',
@@ -84,7 +103,7 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
         });
 
         if (!res.ok) {
-          const data = await res.json();
+          const data = await res.json() as { error?: string };
           throw new Error(data.error || `Upload foto ${i + 1} gagal`);
         }
       }
@@ -104,13 +123,29 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
       if (res.ok) {
         setManaged((prev) => prev.filter((p) => p.id !== id));
       } else {
-        const data = await res.json();
+        const data = await res.json() as { error?: string };
         setError(data.error || 'Gagal menghapus foto');
       }
     } catch {
       setError('Tidak dapat terhubung ke server');
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function toggleManagedBackdrop(id: number, current: number) {
+    const newValue = current ? 0 : 1;
+    try {
+      const res = await fetch(`/api/photos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_backdrop: newValue }),
+      });
+      if (res.ok) {
+        setManaged((prev) => prev.map((p) => p.id === id ? { ...p, is_backdrop: newValue } : p));
+      }
+    } catch (err) {
+      console.error('Failed to update backdrop status', err);
     }
   }
 
@@ -145,8 +180,8 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
       <div className="w-full sm:max-w-xl bg-stone-900 sm:rounded-2xl rounded-t-2xl border border-stone-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-800 shrink-0">
-          <h2 className="text-base font-semibold text-stone-100">🖼️ Kelola Foto</h2>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-stone-800 shrink-0 bg-stone-900/50">
+          <h2 className="text-lg font-semibold text-stone-100">🖼️ Kelola Foto</h2>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-stone-500 hover:text-stone-200 hover:bg-stone-800 transition-colors"
@@ -155,7 +190,7 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 p-5 space-y-5">
+        <div className="overflow-y-auto flex-1 p-6 space-y-8">
           {/* Existing photos list */}
           {managed.length > 0 && (
             <div>
@@ -184,6 +219,17 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
                       <p className="text-sm text-stone-200 truncate">{photo.caption || '—'}</p>
                       <p className="text-xs text-stone-600">Foto #{idx + 1}</p>
                     </div>
+                    <button
+                      onClick={() => toggleManagedBackdrop(photo.id, photo.is_backdrop)}
+                      title={photo.is_backdrop ? 'Jadikan biasa' : 'Jadikan backdrop'}
+                      className={`shrink-0 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors border ${
+                        photo.is_backdrop 
+                          ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20' 
+                          : 'bg-stone-800 text-stone-500 border-stone-700 hover:text-stone-300'
+                      }`}
+                    >
+                      {photo.is_backdrop ? '★ Backdrop' : '☆ Reguler'}
+                    </button>
                     <button
                       onClick={() => deletePhoto(photo.id)}
                       disabled={deletingId === photo.id}
@@ -233,29 +279,48 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
                 Siap Upload ({pending.length})
               </p>
               {pending.map((p, idx) => (
-                <div key={idx} className="flex gap-3 p-3 rounded-xl bg-stone-800 border border-amber-500/20">
-                  <img
-                    src={p.preview}
-                    alt="preview"
-                    className="w-16 h-16 rounded-lg object-cover shrink-0 bg-stone-700"
-                  />
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <input
-                      type="text"
-                      value={p.caption}
-                      onChange={(e) => updateCaption(idx, e.target.value)}
-                      placeholder="Caption foto ini..."
-                      className="w-full px-2.5 py-2 rounded-lg bg-stone-700 border border-stone-600 text-stone-100 placeholder-stone-500
-                                 focus:outline-none focus:ring-2 focus:ring-amber-500/40 text-sm transition-all"
+                <div key={idx} className="flex flex-col gap-3 p-4 rounded-xl bg-stone-800/50 border border-amber-500/20">
+                  <div className="flex gap-4">
+                    <img
+                      src={p.preview}
+                      alt="preview"
+                      className="w-20 h-20 rounded-lg object-cover shrink-0 bg-stone-700 border border-stone-600"
                     />
-                    <p className="text-xs text-stone-500 truncate">{p.file.name}</p>
+                    <div className="flex-1 min-w-0 space-y-3">
+                      <input
+                        type="text"
+                        value={p.caption}
+                        onChange={(e) => updateCaption(idx, e.target.value)}
+                        placeholder="Caption foto ini..."
+                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-stone-100 placeholder-stone-500
+                                   focus:outline-none focus:ring-2 focus:ring-amber-500/40 text-sm transition-all"
+                      />
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={p.isBackdrop}
+                            onChange={() => togglePendingBackdrop(idx)}
+                            className="hidden"
+                          />
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors
+                            ${p.isBackdrop ? 'bg-indigo-500 border-indigo-500' : 'bg-stone-800 border-stone-600 group-hover:border-stone-400'}`}>
+                            {p.isBackdrop && <span className="text-[10px] text-white font-bold">✓</span>}
+                          </div>
+                          <span className={`text-sm ${p.isBackdrop ? 'text-indigo-400 font-medium' : 'text-stone-400'}`}>
+                            Jadikan Backdrop
+                          </span>
+                        </label>
+                        <p className="text-xs text-stone-500 truncate max-w-[120px]" title={p.file.name}>{p.file.name}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removePending(idx)}
+                      className="self-start w-8 h-8 flex items-center justify-center rounded-lg text-stone-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <button
-                    onClick={() => removePending(idx)}
-                    className="self-start w-7 h-7 flex items-center justify-center rounded-lg text-stone-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                  >
-                    ✕
-                  </button>
                 </div>
               ))}
             </div>
@@ -269,7 +334,7 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-stone-800 shrink-0 flex gap-3">
+        <div className="px-6 py-5 border-t border-stone-800 shrink-0 flex gap-3 bg-stone-900/50">
           <button
             onClick={onClose}
             className="flex-1 py-2.5 rounded-xl border border-stone-700 text-stone-400 hover:text-stone-200 hover:border-stone-500 transition-all text-sm font-medium"

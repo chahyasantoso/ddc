@@ -45,9 +45,10 @@ export class CloudinaryStorageProvider implements StorageProvider {
     });
 
     if (!res.ok) {
-      const errorText = await res.text();
-      console.error("Cloudinary upload failed:", errorText);
-      throw new Error("Failed to upload image to Cloudinary");
+      const errorData = await res.json().catch(() => ({}));
+      const message = (errorData as any)?.error?.message || "Failed to upload image to Cloudinary";
+      console.error("Cloudinary upload failed:", message);
+      throw new Error(message);
     }
 
     const data = await res.json() as any;

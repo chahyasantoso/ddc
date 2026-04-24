@@ -25,7 +25,7 @@ export function useCameraPadding(): Padding {
       const h = window.innerHeight;
       setPad(
         w >= 768
-          ? { top: 0, right: Math.round(w * 0.45), bottom: 0, left: 0 }
+          ? { top: 0, right: 0, bottom: 0, left: Math.round(w * 0.45) }
           : { top: 0, right: 0, bottom: Math.round(h * 0.2), left: 0 },
       );
     }

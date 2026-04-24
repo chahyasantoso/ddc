@@ -33,6 +33,8 @@ export const POST: APIRoute = async ({ params, request, locals: _locals }) => {
     const caption = formData.get('caption') as string ?? '';
     const orderRaw = formData.get('order');
     const order = orderRaw != null ? Number(orderRaw) : 0;
+    const isBackdropRaw = formData.get('is_backdrop');
+    const is_backdrop = isBackdropRaw != null ? Number(isBackdropRaw) : 0;
 
     if (!file) {
       return new Response(JSON.stringify({ error: 'photo file is required' }), {
@@ -46,9 +48,9 @@ export const POST: APIRoute = async ({ params, request, locals: _locals }) => {
 
     await db
       .prepare(
-        `INSERT INTO photos (checkpoint_id, photo_url, caption, "order") VALUES (?, ?, ?, ?)`
+        `INSERT INTO photos (checkpoint_id, photo_url, caption, "order", is_backdrop) VALUES (?, ?, ?, ?, ?)`
       )
-      .bind(checkpointId, photoUrl, caption, order)
+      .bind(checkpointId, photoUrl, caption, order, is_backdrop)
       .run();
 
     const created = await db
@@ -61,7 +63,7 @@ export const POST: APIRoute = async ({ params, request, locals: _locals }) => {
     });
   } catch (err) {
     console.error('[POST /api/checkpoints/:id/photos]', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

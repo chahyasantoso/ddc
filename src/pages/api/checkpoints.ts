@@ -35,7 +35,7 @@ export const GET: APIRoute = async () => {
     });
   } catch (err) {
     console.error('[GET /api/checkpoints]', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -72,7 +72,7 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (err) {
     console.error('[POST /api/checkpoints]', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

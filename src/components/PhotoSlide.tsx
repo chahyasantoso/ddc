@@ -111,15 +111,6 @@ export function PhotoSlide({
             decoding="async"
           />
         </div>
-
-        {photo.caption && (
-          <div className="ps-footer">
-            <p className="ps-caption">{photo.caption}</p>
-            <span className="ps-counter">
-              {absoluteIndex + 1} / {totalItems}
-            </span>
-          </div>
-        )}
       </div>
     </StackSlide>
   );
