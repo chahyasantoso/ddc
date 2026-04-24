@@ -35,10 +35,8 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
   // ── File picking / drag-drop ─────────────────────────────────────────────
   async function addFiles(files: FileList | null) {
     if (!files) return;
-    const remaining = 5 - totalCount;
-    if (remaining <= 0) return;
 
-    const fileArray = Array.from(files).slice(0, remaining);
+    const fileArray = Array.from(files);
     setUploading(true);
     const toAdd: PendingPhoto[] = [];
     for (const originalFile of fileArray) {
@@ -315,12 +313,11 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
             </div>
           )}
 
-          {/* Drop zone — only if under limit */}
-          {totalCount < 5 && (
-            <div>
-              <p className="text-xs text-stone-500 uppercase tracking-wider mb-2 font-medium">
-                Tambah Foto ({totalCount}/5)
-              </p>
+          {/* Drop zone */}
+          <div>
+            <p className="text-xs text-stone-500 uppercase tracking-wider mb-2 font-medium">
+              Tambah Foto ({totalCount})
+            </p>
               <label
                 className={`flex flex-col items-center justify-center gap-2 h-28 rounded-xl border-2 border-dashed cursor-pointer transition-all
                              ${dragOver ? 'border-amber-500 bg-amber-500/5' : 'border-stone-700 hover:border-stone-500 bg-stone-800/50'}`}
@@ -340,7 +337,6 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
                 />
               </label>
             </div>
-          )}
 
           {/* Pending photos */}
           {pending.length > 0 && (

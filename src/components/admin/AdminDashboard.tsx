@@ -173,7 +173,7 @@ export function AdminDashboard({ checkpoints, loading, onRefresh, onLogout }: Ad
                   onClick={() => setPhotoTarget(cp)}
                   className="flex-1 py-3 text-sm text-stone-400 hover:text-stone-200 hover:bg-stone-800/50 transition-colors flex items-center justify-center gap-2"
                 >
-                  🖼️ Foto <span className="text-amber-500 font-medium">({cp.photos.length}/5)</span>
+                  🖼️ Foto <span className="text-amber-500 font-medium">({cp.photos.length})</span>
                 </button>
                 <button
                   onClick={() => setEditingCheckpoint(cp)}
