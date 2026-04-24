@@ -27,6 +27,8 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
   const [managed, setManaged] = useState<Photo[]>(existingPhotos);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
+  const [editingCaptionId, setEditingCaptionId] = useState<number | null>(null);
+  const [editingCaptionValue, setEditingCaptionValue] = useState('');
 
   const totalCount = managed.length + pending.length;
 
@@ -150,6 +152,39 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
     }
   }
 
+  // ── Edit caption for existing photo ────────────────────────────────────────
+  function startEditCaption(photo: Photo) {
+    setEditingCaptionId(photo.id);
+    setEditingCaptionValue(photo.caption ?? '');
+  }
+
+  async function saveCaption(id: number) {
+    try {
+      const res = await adminFetch(`/api/photos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caption: editingCaptionValue }),
+      });
+      if (res.ok) {
+        setManaged((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, caption: editingCaptionValue } : p))
+        );
+      } else {
+        const data = await res.json() as { error?: string };
+        setError(data.error || 'Gagal menyimpan caption');
+      }
+    } catch {
+      setError('Tidak dapat terhubung ke server');
+    } finally {
+      setEditingCaptionId(null);
+    }
+  }
+
+  function handleCaptionKeyDown(e: React.KeyboardEvent, id: number) {
+    if (e.key === 'Enter') saveCaption(id);
+    if (e.key === 'Escape') setEditingCaptionId(null);
+  }
+
   // ── Drag-reorder existing photos ─────────────────────────────────────────
   function handleDragStart(idx: number) {
     setDraggingIdx(idx);
@@ -217,8 +252,42 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
                       className="w-12 h-12 rounded-lg object-cover shrink-0 bg-stone-700"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-stone-200 truncate">{photo.caption || '—'}</p>
-                      <p className="text-xs text-stone-600">Foto #{idx + 1}</p>
+                      {editingCaptionId === photo.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editingCaptionValue}
+                            onChange={(e) => setEditingCaptionValue(e.target.value)}
+                            onKeyDown={(e) => handleCaptionKeyDown(e, photo.id)}
+                            onBlur={() => saveCaption(photo.id)}
+                            placeholder="Caption foto ini..."
+                            className="flex-1 min-w-0 px-2 py-1 rounded-md bg-stone-900 border border-amber-500/40 text-stone-100
+                                       placeholder-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40 text-sm transition-all"
+                          />
+                          <button
+                            onMouseDown={(e) => { e.preventDefault(); saveCaption(photo.id); }}
+                            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold transition-colors"
+                            title="Simpan"
+                          >✓</button>
+                          <button
+                            onMouseDown={(e) => { e.preventDefault(); setEditingCaptionId(null); }}
+                            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md bg-stone-800 hover:bg-stone-700 text-stone-400 text-xs transition-colors"
+                            title="Batal"
+                          >✕</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => startEditCaption(photo)}
+                          className="w-full text-left group"
+                          title="Klik untuk edit caption"
+                        >
+                          <p className="text-sm text-stone-200 truncate group-hover:text-amber-400 transition-colors">
+                            {photo.caption || <span className="text-stone-600 italic">Tambah caption...</span>}
+                          </p>
+                        </button>
+                      )}
+                      <p className="text-xs text-stone-600 mt-0.5">Foto #{idx + 1} · klik caption untuk edit</p>
                     </div>
                     <button
                       onClick={() => toggleManagedBackdrop(photo.id, photo.is_backdrop)}
