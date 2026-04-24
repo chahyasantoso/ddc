@@ -197,16 +197,38 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
     setManaged(reordered);
   }
 
+  async function persistOrder(photos: Photo[]) {
+    try {
+      for (let i = 0; i < photos.length; i++) {
+        await adminFetch(`/api/photos/${photos[i].id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: i }),
+        });
+      }
+    } catch (err) {
+      console.error('Failed to persist photo order', err);
+      setError('Gagal menyimpan urutan foto');
+    }
+  }
+
   async function handleDragEnd() {
     setDraggingIdx(null);
-    // Persist new order
-    for (let i = 0; i < managed.length; i++) {
-      await adminFetch(`/api/photos/${managed[i].id}/reorder`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: i }),
-      });
-    }
+    await persistOrder(managed);
+  }
+
+  // ── Touch-based reorder (mobile) ────────────────────────────────────────
+  const [touchIdx, setTouchIdx] = useState<number | null>(null);
+
+  function moveItem(fromIdx: number, direction: 'up' | 'down') {
+    const toIdx = direction === 'up' ? fromIdx - 1 : fromIdx + 1;
+    if (toIdx < 0 || toIdx >= managed.length) return;
+    const reordered = [...managed];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    setManaged(reordered);
+    setTouchIdx(toIdx);
+    persistOrder(reordered);
   }
 
   return (
@@ -241,9 +263,22 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
                     onDragEnd={handleDragEnd}
                     onDragOver={(e) => e.preventDefault()}
                     className={`flex items-center gap-3 p-2.5 rounded-xl bg-stone-800 border cursor-grab active:cursor-grabbing transition-all
-                                ${draggingIdx === idx ? 'border-amber-500/50 opacity-50' : 'border-stone-700'}`}
+                                ${draggingIdx === idx || touchIdx === idx ? 'border-amber-500/50 ring-1 ring-amber-500/30' : 'border-stone-700'}`}
                   >
-                    <span className="text-stone-600 select-none">⠿</span>
+                    <div className="flex flex-col gap-0.5 shrink-0">
+                      <button
+                        onClick={() => moveItem(idx, 'up')}
+                        disabled={idx === 0}
+                        className="w-6 h-5 flex items-center justify-center rounded text-stone-500 hover:text-amber-400 hover:bg-stone-700 disabled:opacity-20 disabled:pointer-events-none transition-colors text-xs"
+                        title="Pindah ke atas"
+                      >▲</button>
+                      <button
+                        onClick={() => moveItem(idx, 'down')}
+                        disabled={idx === managed.length - 1}
+                        className="w-6 h-5 flex items-center justify-center rounded text-stone-500 hover:text-amber-400 hover:bg-stone-700 disabled:opacity-20 disabled:pointer-events-none transition-colors text-xs"
+                        title="Pindah ke bawah"
+                      >▼</button>
+                    </div>
                     <img
                       src={photo.photo_url}
                       alt={photo.caption}
