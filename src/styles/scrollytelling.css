@@ -175,6 +175,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  z-index: 10;
 }
 
 @media (min-width: 768px) {
@@ -482,14 +483,14 @@
 .floating-captions-container {
   position: absolute;
   inset: 0;
-  z-index: 45;
+  z-index: 5;
 }
 
 .floating-caption-slide {
   display: flex !important;
   align-items: flex-end;
   justify-content: center;
-  padding: 0 20px 15vh 20px;
+  padding: 0 20px 5vh 20px;
 }
 
 .floating-caption-content {
