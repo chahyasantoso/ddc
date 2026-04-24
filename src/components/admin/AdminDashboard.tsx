@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { CheckpointWithPhotos, Checkpoint } from '../../lib/db';
 import { CheckpointForm } from './CheckpointForm';
 import { PhotoUploader } from './PhotoUploader';
+import { adminFetch } from '../../lib/adminFetch';
 
 interface AdminDashboardProps {
   checkpoints: CheckpointWithPhotos[];
@@ -20,7 +21,7 @@ export function AdminDashboard({ checkpoints, loading, onRefresh, onLogout }: Ad
   async function handleDelete(id: number) {
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/checkpoints/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/checkpoints/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setConfirmDeleteId(null);
         onRefresh();

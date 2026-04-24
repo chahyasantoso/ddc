@@ -3,8 +3,14 @@ import type { Photo } from '../../../../lib/db';
 import { env } from 'cloudflare:workers';
 import { getStorageProvider } from '../../../../lib/storage';
 import { getDB } from '../../../../lib/db-client';
+import { verifyRequest, unauthorizedResponse } from '../../../../lib/auth';
 
 export const POST: APIRoute = async ({ params, request, locals: _locals }) => {
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+  if (!await verifyRequest(request, (env as any).ADMIN_PASSWORD)) {
+    return unauthorizedResponse();
+  }
+
   try {
     const checkpointId = Number(params.id);
     if (isNaN(checkpointId)) {

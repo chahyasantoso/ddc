@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Checkpoint } from '../../lib/db';
+import { adminFetch } from '../../lib/adminFetch';
 
 interface CheckpointFormProps {
   editing?: Checkpoint | null;
@@ -66,7 +67,7 @@ export function CheckpointForm({ editing, onSaved, onCancel }: CheckpointFormPro
         : '/api/checkpoints';
       const method = editing ? 'PATCH' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

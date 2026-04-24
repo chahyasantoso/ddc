@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { Photo } from '../../lib/db';
 import { compressImage } from '../../lib/imageOpt';
+import { adminFetch } from '../../lib/adminFetch';
 
 interface PhotoUploaderProps {
   checkpointId: number;
@@ -97,7 +98,7 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
         fd.append('order', String(managed.length + i));
         fd.append('is_backdrop', isBackdrop ? '1' : '0');
 
-        const res = await fetch(`/api/checkpoints/${checkpointId}/photos`, {
+        const res = await adminFetch(`/api/checkpoints/${checkpointId}/photos`, {
           method: 'POST',
           body: fd,
         });
@@ -119,7 +120,7 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
   async function deletePhoto(id: number) {
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/photos/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/photos/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setManaged((prev) => prev.filter((p) => p.id !== id));
       } else {
@@ -136,7 +137,7 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
   async function toggleManagedBackdrop(id: number, current: number) {
     const newValue = current ? 0 : 1;
     try {
-      const res = await fetch(`/api/photos/${id}`, {
+      const res = await adminFetch(`/api/photos/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_backdrop: newValue }),
@@ -167,7 +168,7 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
     setDraggingIdx(null);
     // Persist new order
     for (let i = 0; i < managed.length; i++) {
-      await fetch(`/api/photos/${managed[i].id}/reorder`, {
+      await adminFetch(`/api/photos/${managed[i].id}/reorder`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: i }),

@@ -3,8 +3,14 @@ import type { Photo } from '../../../lib/db';
 import { env } from 'cloudflare:workers';
 import { getStorageProvider } from '../../../lib/storage';
 import { getDB } from '../../../lib/db-client';
+import { verifyRequest, unauthorizedResponse } from '../../../lib/auth';
 
-export const DELETE: APIRoute = async ({ params }) => {
+export const DELETE: APIRoute = async ({ request, params }) => {
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+  if (!await verifyRequest(request, (env as any).ADMIN_PASSWORD)) {
+    return unauthorizedResponse();
+  }
+
   try {
     const id = Number(params.id);
     if (isNaN(id)) {
@@ -48,6 +54,11 @@ export const DELETE: APIRoute = async ({ params }) => {
 };
 
 export const PATCH: APIRoute = async ({ request, params }) => {
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+  if (!await verifyRequest(request, (env as any).ADMIN_PASSWORD)) {
+    return unauthorizedResponse();
+  }
+
   try {
     const id = Number(params.id);
     if (isNaN(id)) {
