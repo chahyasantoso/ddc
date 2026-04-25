@@ -13,7 +13,9 @@
     "db:setup": "wrangler d1 execute ddc-journal --local --file=./db/schema.sql",
     "db:seed": "wrangler d1 execute ddc-journal --local --file=./db/seed.sql",
     "db:reset": "wrangler d1 execute ddc-journal --local --file=./db/reset.sql",
-    "db:deploy": "wrangler d1 execute ddc-journal --remote --file=./db/schema.sql"
+    "db:deploy": "wrangler d1 execute ddc-journal --remote --file=./db/schema.sql",
+    "db:migrate-ai": "wrangler d1 execute ddc-journal --local --file=./db/migration_ai_settings.sql",
+    "db:migrate-ai:deploy": "wrangler d1 execute ddc-journal --remote --file=./db/migration_ai_settings.sql"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.8",

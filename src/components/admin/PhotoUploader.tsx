@@ -1,11 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { Photo } from '../../lib/db';
-import { compressImage } from '../../lib/imageOpt';
+import { optimizeImage, optimizeForAi } from '../../lib/image-service';
 import { adminFetch } from '../../lib/adminFetch';
+import type { CaptionResponse } from '../../lib/ai/types';
 
 interface PhotoUploaderProps {
   checkpointId: number;
   existingPhotos: Photo[];
+  locationName?: string;
   onDone: () => void;
   onClose: () => void;
 }
@@ -17,7 +19,10 @@ interface PendingPhoto {
   isBackdrop: boolean;
 }
 
-export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }: PhotoUploaderProps) {
+// 3-second cooldown between AI requests
+const AI_COOLDOWN_MS = 3000;
+
+export function PhotoUploader({ checkpointId, existingPhotos, locationName, onDone, onClose }: PhotoUploaderProps) {
   const [pending, setPending] = useState<PendingPhoto[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +35,117 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
   const [editingCaptionId, setEditingCaptionId] = useState<number | null>(null);
   const [editingCaptionValue, setEditingCaptionValue] = useState('');
 
+  // AI caption state
+  const [aiLoadingId, setAiLoadingId] = useState<string | null>(null); // 'existing-{id}' or 'pending-{idx}'
+  const [aiError, setAiError] = useState<Record<string, string>>({});
+  const aiCooldownRef = useRef<number>(0);
+
   const totalCount = managed.length + pending.length;
+
+  // ── AI Caption helper ───────────────────────────────────────────────────
+  function isAiOnCooldown(): boolean {
+    return Date.now() < aiCooldownRef.current;
+  }
+
+  function setAiCooldown() {
+    aiCooldownRef.current = Date.now() + AI_COOLDOWN_MS;
+  }
+
+  /**
+   * Generate/refine caption for an existing (already uploaded) photo.
+   */
+  async function aiCaptionExisting(photo: Photo) {
+    if (isAiOnCooldown()) return;
+    const key = `existing-${photo.id}`;
+    setAiLoadingId(key);
+    setAiError((prev) => { const next = { ...prev }; delete next[key]; return next; });
+
+    try {
+      const res = await adminFetch('/api/ai/caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photoUrl: photo.photo_url,
+          existingCaption: editingCaptionId === photo.id ? editingCaptionValue : (photo.caption ?? ''),
+          locationName,
+        }),
+      });
+
+      const data = await res.json() as CaptionResponse & { error?: string; code?: string };
+      if (!res.ok) {
+        throw new Error(data.error || 'AI caption gagal');
+      }
+
+      // Apply the caption — save immediately
+      const caption = data.caption;
+      const saveRes = await adminFetch(`/api/photos/${photo.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caption }),
+      });
+      if (saveRes.ok) {
+        setManaged((prev) => prev.map((p) => (p.id === photo.id ? { ...p, caption } : p)));
+        // If we're currently editing this caption, update the editing state too
+        if (editingCaptionId === photo.id) {
+          setEditingCaptionValue(caption);
+        }
+      }
+    } catch (err) {
+      setAiError((prev) => ({
+        ...prev,
+        [key]: err instanceof Error ? err.message : 'AI caption gagal',
+      }));
+    } finally {
+      setAiLoadingId(null);
+      setAiCooldown();
+    }
+  }
+
+  /**
+   * Generate/refine caption for a pending (not yet uploaded) photo.
+   */
+  async function aiCaptionPending(idx: number) {
+    if (isAiOnCooldown()) return;
+    const key = `pending-${idx}`;
+    setAiLoadingId(key);
+    setAiError((prev) => { const next = { ...prev }; delete next[key]; return next; });
+
+    try {
+      const pendingPhoto = pending[idx];
+
+      // Optimize the image for AI (768px, 0.6q) and convert to base64
+      const { base64, mimeType } = await optimizeForAi(pendingPhoto.file);
+
+      const res = await adminFetch('/api/ai/caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photoBase64: base64,
+          photoMimeType: mimeType,
+          existingCaption: pendingPhoto.caption,
+          locationName,
+        }),
+      });
+
+      const data = await res.json() as CaptionResponse & { error?: string; code?: string };
+      if (!res.ok) {
+        throw new Error(data.error || 'AI caption gagal');
+      }
+
+      // Apply the caption to pending photo
+      setPending((prev) =>
+        prev.map((p, i) => (i === idx ? { ...p, caption: data.caption } : p))
+      );
+    } catch (err) {
+      setAiError((prev) => ({
+        ...prev,
+        [key]: err instanceof Error ? err.message : 'AI caption gagal',
+      }));
+    } finally {
+      setAiLoadingId(null);
+      setAiCooldown();
+    }
+  }
 
   // ── File picking / drag-drop ─────────────────────────────────────────────
   async function addFiles(files: FileList | null) {
@@ -41,7 +156,7 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
     const toAdd: PendingPhoto[] = [];
     for (const originalFile of fileArray) {
       try {
-        const file = await compressImage(originalFile);
+        const file = await optimizeImage(originalFile, 'upload');
         toAdd.push({
           file,
           preview: URL.createObjectURL(file),
@@ -231,6 +346,30 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
     persistOrder(reordered);
   }
 
+  // ── AI button helper ───────────────────────────────────────────────────
+  function AiButton({ onClick, loadingKey }: { onClick: () => void; loadingKey: string }) {
+    const isLoading = aiLoadingId === loadingKey;
+    return (
+      <button
+        onClick={onClick}
+        disabled={isLoading || aiLoadingId !== null}
+        title="Generate caption dengan AI"
+        className={`shrink-0 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-all border flex items-center gap-1
+          ${isLoading
+            ? 'bg-violet-500/20 text-violet-300 border-violet-500/30 cursor-wait'
+            : 'bg-violet-500/10 text-violet-400 border-violet-500/20 hover:bg-violet-500/20 hover:text-violet-300 disabled:opacity-40 disabled:cursor-not-allowed'
+          }`}
+      >
+        {isLoading ? (
+          <span className="inline-block w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          '✨'
+        )}
+        {isLoading ? 'AI...' : 'AI'}
+      </button>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm">
       <div className="w-full sm:max-w-xl bg-stone-900 sm:rounded-2xl rounded-t-2xl border border-stone-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -262,86 +401,95 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
                     onDragEnter={() => handleDragEnter(idx)}
                     onDragEnd={handleDragEnd}
                     onDragOver={(e) => e.preventDefault()}
-                    className={`flex items-center gap-3 p-2.5 rounded-xl bg-stone-800 border cursor-grab active:cursor-grabbing transition-all
+                    className={`flex flex-col gap-1.5 p-2.5 rounded-xl bg-stone-800 border cursor-grab active:cursor-grabbing transition-all
                                 ${draggingIdx === idx || touchIdx === idx ? 'border-amber-500/50 ring-1 ring-amber-500/30' : 'border-stone-700'}`}
                   >
-                    <div className="flex flex-col gap-0.5 shrink-0">
-                      <button
-                        onClick={() => moveItem(idx, 'up')}
-                        disabled={idx === 0}
-                        className="w-6 h-5 flex items-center justify-center rounded text-stone-500 hover:text-amber-400 hover:bg-stone-700 disabled:opacity-20 disabled:pointer-events-none transition-colors text-xs"
-                        title="Pindah ke atas"
-                      >▲</button>
-                      <button
-                        onClick={() => moveItem(idx, 'down')}
-                        disabled={idx === managed.length - 1}
-                        className="w-6 h-5 flex items-center justify-center rounded text-stone-500 hover:text-amber-400 hover:bg-stone-700 disabled:opacity-20 disabled:pointer-events-none transition-colors text-xs"
-                        title="Pindah ke bawah"
-                      >▼</button>
-                    </div>
-                    <img
-                      src={photo.photo_url}
-                      alt={photo.caption}
-                      className="w-12 h-12 rounded-lg object-cover shrink-0 bg-stone-700"
-                    />
-                    <div className="flex-1 min-w-0">
-                      {editingCaptionId === photo.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            autoFocus
-                            type="text"
-                            value={editingCaptionValue}
-                            onChange={(e) => setEditingCaptionValue(e.target.value)}
-                            onKeyDown={(e) => handleCaptionKeyDown(e, photo.id)}
-                            onBlur={() => saveCaption(photo.id)}
-                            placeholder="Caption foto ini..."
-                            className="flex-1 min-w-0 px-2 py-1 rounded-md bg-stone-900 border border-amber-500/40 text-stone-100
-                                       placeholder-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40 text-sm transition-all"
-                          />
-                          <button
-                            onMouseDown={(e) => { e.preventDefault(); saveCaption(photo.id); }}
-                            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold transition-colors"
-                            title="Simpan"
-                          >✓</button>
-                          <button
-                            onMouseDown={(e) => { e.preventDefault(); setEditingCaptionId(null); }}
-                            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md bg-stone-800 hover:bg-stone-700 text-stone-400 text-xs transition-colors"
-                            title="Batal"
-                          >✕</button>
-                        </div>
-                      ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col gap-0.5 shrink-0">
                         <button
-                          onClick={() => startEditCaption(photo)}
-                          className="w-full text-left group"
-                          title="Klik untuk edit caption"
-                        >
-                          <p className="text-sm text-stone-200 truncate group-hover:text-amber-400 transition-colors">
-                            {photo.caption || <span className="text-stone-600 italic">Tambah caption...</span>}
-                          </p>
-                        </button>
-                      )}
-                      <p className="text-xs text-stone-600 mt-0.5">Foto #{idx + 1} · klik caption untuk edit</p>
+                          onClick={() => moveItem(idx, 'up')}
+                          disabled={idx === 0}
+                          className="w-6 h-5 flex items-center justify-center rounded text-stone-500 hover:text-amber-400 hover:bg-stone-700 disabled:opacity-20 disabled:pointer-events-none transition-colors text-xs"
+                          title="Pindah ke atas"
+                        >▲</button>
+                        <button
+                          onClick={() => moveItem(idx, 'down')}
+                          disabled={idx === managed.length - 1}
+                          className="w-6 h-5 flex items-center justify-center rounded text-stone-500 hover:text-amber-400 hover:bg-stone-700 disabled:opacity-20 disabled:pointer-events-none transition-colors text-xs"
+                          title="Pindah ke bawah"
+                        >▼</button>
+                      </div>
+                      <img
+                        src={photo.photo_url}
+                        alt={photo.caption}
+                        className="w-12 h-12 rounded-lg object-cover shrink-0 bg-stone-700"
+                      />
+                      <div className="flex-1 min-w-0">
+                        {editingCaptionId === photo.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              autoFocus
+                              type="text"
+                              value={editingCaptionValue}
+                              onChange={(e) => setEditingCaptionValue(e.target.value)}
+                              onKeyDown={(e) => handleCaptionKeyDown(e, photo.id)}
+                              onBlur={() => saveCaption(photo.id)}
+                              placeholder="Caption foto ini..."
+                              className="flex-1 min-w-0 px-2 py-1 rounded-md bg-stone-900 border border-amber-500/40 text-stone-100
+                                         placeholder-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40 text-sm transition-all"
+                            />
+                            <button
+                              onMouseDown={(e) => { e.preventDefault(); saveCaption(photo.id); }}
+                              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold transition-colors"
+                              title="Simpan"
+                            >✓</button>
+                            <button
+                              onMouseDown={(e) => { e.preventDefault(); setEditingCaptionId(null); }}
+                              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md bg-stone-800 hover:bg-stone-700 text-stone-400 text-xs transition-colors"
+                              title="Batal"
+                            >✕</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => startEditCaption(photo)}
+                            className="w-full text-left group"
+                            title="Klik untuk edit caption"
+                          >
+                            <p className="text-sm text-stone-200 truncate group-hover:text-amber-400 transition-colors">
+                              {photo.caption || <span className="text-stone-600 italic">Tambah caption...</span>}
+                            </p>
+                          </button>
+                        )}
+                        <p className="text-xs text-stone-600 mt-0.5">Foto #{idx + 1} · klik caption untuk edit</p>
+                      </div>
+                      <AiButton onClick={() => aiCaptionExisting(photo)} loadingKey={`existing-${photo.id}`} />
+                      <button
+                        onClick={() => toggleManagedBackdrop(photo.id, photo.is_backdrop)}
+                        title={photo.is_backdrop ? 'Jadikan biasa' : 'Jadikan backdrop'}
+                        className={`shrink-0 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors border ${
+                          photo.is_backdrop 
+                            ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20' 
+                            : 'bg-stone-800 text-stone-500 border-stone-700 hover:text-stone-300'
+                        }`}
+                      >
+                        {photo.is_backdrop ? '★ Backdrop' : '☆ Reguler'}
+                      </button>
+                      <button
+                        onClick={() => deletePhoto(photo.id)}
+                        disabled={deletingId === photo.id}
+                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-stone-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        {deletingId === photo.id ? (
+                          <span className="inline-block w-3 h-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
+                        ) : '🗑'}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => toggleManagedBackdrop(photo.id, photo.is_backdrop)}
-                      title={photo.is_backdrop ? 'Jadikan biasa' : 'Jadikan backdrop'}
-                      className={`shrink-0 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors border ${
-                        photo.is_backdrop 
-                          ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20' 
-                          : 'bg-stone-800 text-stone-500 border-stone-700 hover:text-stone-300'
-                      }`}
-                    >
-                      {photo.is_backdrop ? '★ Backdrop' : '☆ Reguler'}
-                    </button>
-                    <button
-                      onClick={() => deletePhoto(photo.id)}
-                      disabled={deletingId === photo.id}
-                      className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-stone-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                    >
-                      {deletingId === photo.id ? (
-                        <span className="inline-block w-3 h-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
-                      ) : '🗑'}
-                    </button>
+                    {/* AI error for this photo */}
+                    {aiError[`existing-${photo.id}`] && (
+                      <p className="text-xs text-red-400 ml-[4.5rem] flex items-center gap-1">
+                        ⚠️ {aiError[`existing-${photo.id}`]}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -388,14 +536,23 @@ export function PhotoUploader({ checkpointId, existingPhotos, onDone, onClose }:
                       className="w-20 h-20 rounded-lg object-cover shrink-0 bg-stone-700 border border-stone-600"
                     />
                     <div className="flex-1 min-w-0 space-y-3">
-                      <input
-                        type="text"
-                        value={p.caption}
-                        onChange={(e) => updateCaption(idx, e.target.value)}
-                        placeholder="Caption foto ini..."
-                        className="w-full px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-stone-100 placeholder-stone-500
-                                   focus:outline-none focus:ring-2 focus:ring-amber-500/40 text-sm transition-all"
-                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={p.caption}
+                          onChange={(e) => updateCaption(idx, e.target.value)}
+                          placeholder="Caption foto ini..."
+                          className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-stone-100 placeholder-stone-500
+                                     focus:outline-none focus:ring-2 focus:ring-amber-500/40 text-sm transition-all"
+                        />
+                        <AiButton onClick={() => aiCaptionPending(idx)} loadingKey={`pending-${idx}`} />
+                      </div>
+                      {/* AI error for this pending photo */}
+                      {aiError[`pending-${idx}`] && (
+                        <p className="text-xs text-red-400 flex items-center gap-1">
+                          ⚠️ {aiError[`pending-${idx}`]}
+                        </p>
+                      )}
                       <div className="flex items-center justify-between">
                         <label className="flex items-center gap-2 cursor-pointer group">
                           <input

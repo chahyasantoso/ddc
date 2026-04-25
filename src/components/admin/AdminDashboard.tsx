@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { CheckpointWithPhotos, Checkpoint } from '../../lib/db';
 import { CheckpointForm } from './CheckpointForm';
 import { PhotoUploader } from './PhotoUploader';
+import { AiSettingsPanel } from './AiSettingsPanel';
 import { adminFetch } from '../../lib/adminFetch';
 
 interface AdminDashboardProps {
@@ -17,6 +18,7 @@ export function AdminDashboard({ checkpoints, loading, onRefresh, onLogout }: Ad
   const [photoTarget, setPhotoTarget] = useState<CheckpointWithPhotos | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [showAiSettings, setShowAiSettings] = useState(false);
 
   async function handleDelete(id: number) {
     setDeletingId(id);
@@ -54,6 +56,13 @@ export function AdminDashboard({ checkpoints, loading, onRefresh, onLogout }: Ad
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAiSettings(true)}
+            className="p-2 rounded-lg text-stone-500 hover:text-stone-300 hover:bg-stone-800 transition-colors"
+            title="AI Settings"
+          >
+            <span className="text-base">🤖</span>
+          </button>
           <button
             onClick={onRefresh}
             disabled={loading}
@@ -218,9 +227,14 @@ export function AdminDashboard({ checkpoints, loading, onRefresh, onLogout }: Ad
         <PhotoUploader
           checkpointId={photoTarget.id}
           existingPhotos={photoTarget.photos}
+          locationName={photoTarget.location_name}
           onDone={handlePhotosDone}
           onClose={() => setPhotoTarget(null)}
         />
+      )}
+
+      {showAiSettings && (
+        <AiSettingsPanel onClose={() => setShowAiSettings(false)} />
       )}
     </div>
   );
